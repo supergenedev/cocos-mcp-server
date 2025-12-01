@@ -317,18 +317,10 @@ export class NodeTools implements ToolExecutor {
                 // 如果没有提供父节点UUID，获取场景根节点
                 if (!targetParentUuid) {
                     try {
-                        const sceneInfo = await Editor.Message.request('scene', 'query-node-tree');
-                        if (sceneInfo && typeof sceneInfo === 'object' && !Array.isArray(sceneInfo) && Object.prototype.hasOwnProperty.call(sceneInfo, 'uuid')) {
-                            targetParentUuid = (sceneInfo as any).uuid;
+                        const sceneInfo = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNodeTree');
+                        if (sceneInfo && sceneInfo.success && sceneInfo.uuid) {
+                            targetParentUuid = sceneInfo.uuid;
                             console.log(`No parent specified, using scene root: ${targetParentUuid}`);
-                        } else if (Array.isArray(sceneInfo) && sceneInfo.length > 0 && sceneInfo[0].uuid) {
-                            targetParentUuid = sceneInfo[0].uuid;
-                            console.log(`No parent specified, using scene root: ${targetParentUuid}`);
-                        } else {
-                            const currentScene = await Editor.Message.request('scene', 'query-current-scene');
-                            if (currentScene && currentScene.uuid) {
-                                targetParentUuid = currentScene.uuid;
-                            }
                         }
                     } catch (err) {
                         console.warn('Failed to get scene root, will use default behavior');
@@ -339,7 +331,7 @@ export class NodeTools implements ToolExecutor {
                 let finalAssetUuid = args.assetUuid;
                 if (args.assetPath && !finalAssetUuid) {
                     try {
-                        const assetInfo = await Editor.Message.request('asset-db', 'query-asset-info', args.assetPath);
+                        const assetInfo = await this.queryAssetInfoByUrl(args.assetPath);
                         if (assetInfo && assetInfo.uuid) {
                             finalAssetUuid = assetInfo.uuid;
                             console.log(`Asset path '${args.assetPath}' resolved to UUID: ${finalAssetUuid}`);
@@ -394,19 +386,25 @@ export class NodeTools implements ToolExecutor {
 
                 console.log('Creating node with options:', createNodeOptions);
 
-                // 创建节点
-                const nodeUuid = await Editor.Message.request('scene', 'create-node', createNodeOptions);
+                // 创建节点 - Use 2.x Scene API
+                const nodeUuid = Editor.Scene.callSceneScript('cocos-mcp-server', 'createNodeWithOptions', createNodeOptions);
                 const uuid = Array.isArray(nodeUuid) ? nodeUuid[0] : nodeUuid;
+
+                // Check if node creation failed
+                if (!uuid || (typeof uuid === 'object' && uuid.success === false)) {
+                    resolve({
+                        success: false,
+                        error: `Failed to create node: ${typeof uuid === 'object' ? uuid.error : 'Unknown error'}`
+                    });
+                    return;
+                }
 
                 // 处理兄弟索引
                 if (args.siblingIndex !== undefined && args.siblingIndex >= 0 && uuid && targetParentUuid) {
                     try {
                         await new Promise(resolve => setTimeout(resolve, 100)); // 等待内部状态更新
-                        await Editor.Message.request('scene', 'set-parent', {
-                            parent: targetParentUuid,
-                            uuids: [uuid],
-                            keepWorldTransform: args.keepWorldTransform || false
-                        });
+                        Editor.Scene.callSceneScript('cocos-mcp-server', 'setParent',
+                            targetParentUuid, [uuid], args.keepWorldTransform || false);
                     } catch (err) {
                         console.warn('Failed to set sibling index:', err);
                     }
@@ -502,7 +500,8 @@ export class NodeTools implements ToolExecutor {
 
     private async getNodeInfo(uuid: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'query-node', uuid).then((nodeData: any) => {
+            try {
+                const nodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', uuid);
                 if (!nodeData) {
                     resolve({
                         success: false,
@@ -513,12 +512,12 @@ export class NodeTools implements ToolExecutor {
 
                 // 根据实际返回的数据结构解析节点信息
                 const info: NodeInfo = {
-                    uuid: nodeData.uuid?.value || uuid,
-                    name: nodeData.name?.value || 'Unknown',
+                    uuid: nodeData.uuid?.value || nodeData.uuid || uuid,
+                    name: nodeData.name?.value || nodeData.name || 'Unknown',
                     active: nodeData.active?.value !== undefined ? nodeData.active.value : true,
-                    position: nodeData.position?.value || { x: 0, y: 0, z: 0 },
-                    rotation: nodeData.rotation?.value || { x: 0, y: 0, z: 0 },
-                    scale: nodeData.scale?.value || { x: 1, y: 1, z: 1 },
+                    position: nodeData.position?.value || nodeData.position || { x: 0, y: 0, z: 0 },
+                    rotation: nodeData.rotation?.value || nodeData.rotation || { x: 0, y: 0, z: 0 },
+                    scale: nodeData.scale?.value || nodeData.scale || { x: 1, y: 1, z: 1 },
                     parent: nodeData.parent?.value?.uuid || null,
                     children: nodeData.children || [],
                     components: (nodeData.__comps__ || []).map((comp: any) => ({
@@ -529,94 +528,31 @@ export class NodeTools implements ToolExecutor {
                     mobility: nodeData.mobility?.value || 0
                 };
                 resolve({ success: true, data: info });
-            }).catch((err: Error) => {
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async findNodes(pattern: string, exactMatch: boolean = false): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // Note: 'query-nodes-by-name' API doesn't exist in official documentation
-            // Using tree traversal as primary approach
-            Editor.Message.request('scene', 'query-node-tree').then((tree: any) => {
-                const nodes: any[] = [];
-
-                const searchTree = (node: any, currentPath: string = '') => {
-                    const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
-
-                    const matches = exactMatch ?
-                        node.name === pattern :
-                        node.name.toLowerCase().includes(pattern.toLowerCase());
-
-                    if (matches) {
-                        nodes.push({
-                            uuid: node.uuid,
-                            name: node.name,
-                            path: nodePath
-                        });
-                    }
-
-                    if (node.children) {
-                        for (const child of node.children) {
-                            searchTree(child, nodePath);
-                        }
-                    }
-                };
-
-                if (tree) {
-                    searchTree(tree);
-                }
-
-                resolve({ success: true, data: nodes });
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'findNodes',
-                    args: [pattern, exactMatch]
-                };
-
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
-                    resolve(result);
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Tree search failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'findNodes', pattern, exactMatch);
+                resolve(result);
+            } catch (err: any) {
+                resolve({ success: false, error: `Scene script failed: ${err.message}` });
+            }
         });
     }
 
     private async findNodeByName(name: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 优先尝试使用 Editor API 查询节点树并搜索
-            Editor.Message.request('scene', 'query-node-tree').then((tree: any) => {
-                const foundNode = this.searchNodeInTree(tree, name);
-                if (foundNode) {
-                    resolve({
-                        success: true,
-                        data: {
-                            uuid: foundNode.uuid,
-                            name: foundNode.name,
-                            path: this.getNodePath(foundNode)
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: `Node '${name}' not found` });
-                }
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'findNodeByName',
-                    args: [name]
-                };
-
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
-                    resolve(result);
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Direct API failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'findNodeByName', name);
+                resolve(result);
+            } catch (err: any) {
+                resolve({ success: false, error: `Scene script failed: ${err.message}` });
+            }
         });
     }
 
@@ -639,51 +575,12 @@ export class NodeTools implements ToolExecutor {
 
     private async getAllNodes(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 尝试查询场景节点树
-            Editor.Message.request('scene', 'query-node-tree').then((tree: any) => {
-                const nodes: any[] = [];
-
-                const traverseTree = (node: any) => {
-                    nodes.push({
-                        uuid: node.uuid,
-                        name: node.name,
-                        type: node.type,
-                        active: node.active,
-                        path: this.getNodePath(node)
-                    });
-
-                    if (node.children) {
-                        for (const child of node.children) {
-                            traverseTree(child);
-                        }
-                    }
-                };
-
-                if (tree && tree.children) {
-                    traverseTree(tree);
-                }
-
-                resolve({
-                    success: true,
-                    data: {
-                        totalNodes: nodes.length,
-                        nodes: nodes
-                    }
-                });
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'getAllNodes',
-                    args: []
-                };
-
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
-                    resolve(result);
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Direct API failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'getAllNodes');
+                resolve(result);
+            } catch (err: any) {
+                resolve({ success: false, error: `Scene script failed: ${err.message}` });
+            }
         });
     }
 
@@ -699,53 +596,41 @@ export class NodeTools implements ToolExecutor {
 
     private async setNodeProperty(uuid: string, property: string, value: any): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 尝试直接使用 Editor API 设置节点属性
-            Editor.Message.request('scene', 'set-property', {
-                uuid: uuid,
-                path: property,
-                dump: {
-                    value: value
-                }
-            }).then(() => {
-                // Get comprehensive verification data including updated node info
-                this.getNodeInfo(uuid).then((nodeInfo) => {
-                    resolve({
-                        success: true,
-                        message: `Property '${property}' updated successfully`,
-                        data: {
-                            nodeUuid: uuid,
-                            property: property,
-                            newValue: value
-                        },
-                        verificationData: {
-                            nodeInfo: nodeInfo.data,
-                            changeDetails: {
-                                property: property,
-                                value: value,
-                                timestamp: new Date().toISOString()
-                            }
-                        }
-                    });
-                }).catch(() => {
-                    resolve({
-                        success: true,
-                        message: `Property '${property}' updated successfully (verification failed)`
-                    });
-                });
-            }).catch((err: Error) => {
-                // 如果直接设置失败，尝试使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'setNodeProperty',
-                    args: [uuid, property, value]
-                };
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'setNodeProperty', uuid, property, value);
 
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
-                    resolve(result);
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Direct API failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+                if (result && result.success) {
+                    // Get comprehensive verification data including updated node info
+                    this.getNodeInfo(uuid).then((nodeInfo) => {
+                        resolve({
+                            success: true,
+                            message: `Property '${property}' updated successfully`,
+                            data: {
+                                nodeUuid: uuid,
+                                property: property,
+                                newValue: value
+                            },
+                            verificationData: {
+                                nodeInfo: nodeInfo.data,
+                                changeDetails: {
+                                    property: property,
+                                    value: value,
+                                    timestamp: new Date().toISOString()
+                                }
+                            }
+                        });
+                    }).catch(() => {
+                        resolve({
+                            success: true,
+                            message: `Property '${property}' updated successfully (verification failed)`
+                        });
+                    });
+                } else {
+                    resolve(result || { success: false, error: 'Unknown error' });
+                }
+            } catch (err: any) {
+                resolve({ success: false, error: `Scene script failed: ${err.message}` });
+            }
         });
     }
 
@@ -774,11 +659,8 @@ export class NodeTools implements ToolExecutor {
                     }
 
                     updatePromises.push(
-                        Editor.Message.request('scene', 'set-property', {
-                            uuid: uuid,
-                            path: 'position',
-                            dump: { value: normalizedPosition.value }
-                        })
+                        Promise.resolve(Editor.Scene.callSceneScript('cocos-mcp-server', 'setNodeProperty',
+                            uuid, 'position', normalizedPosition.value))
                     );
                     updates.push('position');
                 }
@@ -790,11 +672,8 @@ export class NodeTools implements ToolExecutor {
                     }
 
                     updatePromises.push(
-                        Editor.Message.request('scene', 'set-property', {
-                            uuid: uuid,
-                            path: 'rotation',
-                            dump: { value: normalizedRotation.value }
-                        })
+                        Promise.resolve(Editor.Scene.callSceneScript('cocos-mcp-server', 'setNodeProperty',
+                            uuid, 'rotation', normalizedRotation.value))
                     );
                     updates.push('rotation');
                 }
@@ -806,11 +685,8 @@ export class NodeTools implements ToolExecutor {
                     }
 
                     updatePromises.push(
-                        Editor.Message.request('scene', 'set-property', {
-                            uuid: uuid,
-                            path: 'scale',
-                            dump: { value: normalizedScale.value }
-                        })
+                        Promise.resolve(Editor.Scene.callSceneScript('cocos-mcp-server', 'setNodeProperty',
+                            uuid, 'scale', normalizedScale.value))
                     );
                     updates.push('scale');
                 }
@@ -960,49 +836,60 @@ export class NodeTools implements ToolExecutor {
 
     private async deleteNode(uuid: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'remove-node', { uuid: uuid }).then(() => {
-                resolve({
-                    success: true,
-                    message: 'Node deleted successfully'
-                });
-            }).catch((err: Error) => {
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'removeNode', uuid);
+                if (result && result.success) {
+                    resolve({
+                        success: true,
+                        message: 'Node deleted successfully'
+                    });
+                } else {
+                    resolve(result || { success: false, error: 'Failed to delete node' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async moveNode(nodeUuid: string, newParentUuid: string, siblingIndex: number = -1): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // Use correct set-parent API instead of move-node
-            Editor.Message.request('scene', 'set-parent', {
-                parent: newParentUuid,
-                uuids: [nodeUuid],
-                keepWorldTransform: false
-            }).then(() => {
-                resolve({
-                    success: true,
-                    message: 'Node moved successfully'
-                });
-            }).catch((err: Error) => {
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'setParent',
+                    newParentUuid, [nodeUuid], false);
+                if (result && result.success) {
+                    resolve({
+                        success: true,
+                        message: 'Node moved successfully'
+                    });
+                } else {
+                    resolve(result || { success: false, error: 'Failed to move node' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async duplicateNode(uuid: string, includeChildren: boolean = true): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // Note: includeChildren parameter is accepted for future use but not currently implemented
-            Editor.Message.request('scene', 'duplicate-node', uuid).then((result: any) => {
-                resolve({
-                    success: true,
-                    data: {
-                        newUuid: result.uuid,
-                        message: 'Node duplicated successfully'
-                    }
-                });
-            }).catch((err: Error) => {
+            try {
+                // Note: includeChildren parameter is accepted for future use but not currently implemented
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'duplicateNode', uuid);
+                if (result && result.uuid) {
+                    resolve({
+                        success: true,
+                        data: {
+                            newUuid: result.uuid,
+                            message: 'Node duplicated successfully'
+                        }
+                    });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to duplicate node' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
@@ -1113,5 +1000,35 @@ export class NodeTools implements ToolExecutor {
         }
 
         return 'generic';
+    }
+
+    /**
+     * Promise wrapper for Editor.assetdb.queryInfoByUuid (2.x API is callback-based)
+     */
+    private queryAssetInfoByUuid(uuid: string): Promise<any> {
+        return new Promise((resolve, reject) => {
+            Editor.assetdb.queryInfoByUuid(uuid, (err: Error | null, info: any) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(info);
+                }
+            });
+        });
+    }
+
+    /**
+     * Promise wrapper for Editor.assetdb.queryInfoByUrl (2.x API is callback-based)
+     */
+    private queryAssetInfoByUrl(url: string): Promise<any> {
+        return new Promise((resolve, reject) => {
+            Editor.assetdb.queryUuidByUrl(url, (err: Error | null, uuid: string) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    this.queryAssetInfoByUuid(uuid).then(resolve).catch(reject);
+                }
+            });
+        });
     }
 }

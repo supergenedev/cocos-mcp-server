@@ -242,25 +242,27 @@ export class DebugTools implements ToolExecutor {
     private async clearConsole(): Promise<ToolResponse> {
         this.consoleMessages = [];
 
-        try {
-            // Note: Editor.Message.send may not return a promise in all versions
-            Editor.Message.send('console', 'clear');
-            return {
-                success: true,
-                message: 'Console cleared successfully'
-            };
-        } catch (err: any) {
-            return { success: false, error: err.message };
-        }
+        return new Promise((resolve) => {
+            // In 2.x, use Editor.Ipc to send messages
+            Editor.Ipc.sendToMain('console:clear', (err: Error | null) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                } else {
+                    resolve({
+                        success: true,
+                        message: 'Console cleared successfully'
+                    });
+                }
+            });
+        });
     }
 
     private async executeScript(script: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'execute-scene-script', {
-                name: 'console',
-                method: 'eval',
-                args: [script]
-            }).then((result: any) => {
+            try {
+                // In 2.x, use Editor.Scene.callSceneScript to execute scene scripts
+                // Note: eval method may need to be implemented in scene.ts
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'executeScript', script);
                 resolve({
                     success: true,
                     data: {
@@ -268,83 +270,147 @@ export class DebugTools implements ToolExecutor {
                         message: 'Script executed successfully'
                     }
                 });
-            }).catch((err: Error) => {
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async getNodeTree(rootUuid?: string, maxDepth: number = 10): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            const buildTree = async (nodeUuid: string, depth: number = 0): Promise<any> => {
-                if (depth >= maxDepth) {
-                    return { truncated: true };
-                }
-
-                try {
-                    const nodeData = await Editor.Message.request('scene', 'query-node', nodeUuid);
+            try {
+                const buildTree = (nodeData: any, depth: number = 0): any => {
+                    if (depth >= maxDepth) {
+                        return { truncated: true };
+                    }
 
                     const tree = {
-                        uuid: nodeData.uuid,
-                        name: nodeData.name,
-                        active: nodeData.active,
-                        components: (nodeData as any).components ? (nodeData as any).components.map((c: any) => c.__type__) : [],
+                        uuid: nodeData.uuid?.value || nodeData.uuid,
+                        name: nodeData.name?.value || nodeData.name,
+                        active: nodeData.active?.value !== undefined ? nodeData.active.value : nodeData.active,
+                        components: (nodeData.__comps__ || []).map((c: any) => c.__type__ || 'Unknown'),
                         childCount: nodeData.children ? nodeData.children.length : 0,
                         children: [] as any[]
                     };
 
-                    if (nodeData.children && nodeData.children.length > 0) {
-                        for (const childId of nodeData.children) {
-                            const childTree = await buildTree(childId, depth + 1);
-                            tree.children.push(childTree);
+                    if (nodeData.children && nodeData.children.length > 0 && depth < maxDepth) {
+                        for (const child of nodeData.children) {
+                            // In 2.x, children are objects with uuid property
+                            const childUuid = child.uuid || child;
+                            try {
+                                const childData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', childUuid);
+                                if (childData) {
+                                    const childTree = buildTree(childData, depth + 1);
+                                    tree.children.push(childTree);
+                                }
+                            } catch (err: any) {
+                                tree.children.push({ error: err.message, uuid: childUuid });
+                            }
                         }
                     }
 
                     return tree;
-                } catch (err: any) {
-                    return { error: err.message };
-                }
-            };
+                };
 
-            if (rootUuid) {
-                buildTree(rootUuid).then(tree => {
-                    resolve({ success: true, data: tree });
-                });
-            } else {
-                Editor.Message.request('scene', 'query-hierarchy').then(async (hierarchy: any) => {
-                    const trees = [];
-                    for (const rootNode of hierarchy.children) {
-                        const tree = await buildTree(rootNode.uuid);
-                        trees.push(tree);
+                if (rootUuid) {
+                    try {
+                        const nodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', rootUuid);
+                        if (nodeData) {
+                            const tree = buildTree(nodeData, 0);
+                            resolve({ success: true, data: tree });
+                        } else {
+                            resolve({ success: false, error: 'Node not found' });
+                        }
+                    } catch (err: any) {
+                        resolve({ success: false, error: err.message });
                     }
-                    resolve({ success: true, data: trees });
-                }).catch((err: Error) => {
-                    resolve({ success: false, error: err.message });
-                });
+                } else {
+                    // Get scene hierarchy
+                    try {
+                        const hierarchy = Editor.Scene.callSceneScript('cocos-mcp-server', 'getSceneHierarchy', false);
+                        if (hierarchy && hierarchy.success && hierarchy.data) {
+                            const trees = hierarchy.data.map((rootNode: any) => {
+                                try {
+                                    const nodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', rootNode.uuid);
+                                    return nodeData ? buildTree(nodeData, 0) : { error: 'Failed to query node', uuid: rootNode.uuid };
+                                } catch (err: any) {
+                                    return { error: err.message, uuid: rootNode.uuid };
+                                }
+                            });
+                            resolve({ success: true, data: trees });
+                        } else {
+                            resolve({ success: false, error: 'Failed to get scene hierarchy' });
+                        }
+                    } catch (err: any) {
+                        resolve({ success: false, error: err.message });
+                    }
+                }
+            } catch (err: any) {
+                resolve({ success: false, error: err.message });
             }
         });
     }
 
     private async getPerformanceStats(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'query-performance').then((stats: any) => {
-                const perfStats: PerformanceStats = {
-                    nodeCount: stats.nodeCount || 0,
-                    componentCount: stats.componentCount || 0,
-                    drawCalls: stats.drawCalls || 0,
-                    triangles: stats.triangles || 0,
-                    memory: stats.memory || {}
-                };
-                resolve({ success: true, data: perfStats });
-            }).catch(() => {
+            try {
+                // In 2.x, performance stats are not directly available via API
+                // Try to get basic stats from scene hierarchy
+                const hierarchy = Editor.Scene.callSceneScript('cocos-mcp-server', 'getSceneHierarchy', false);
+
+                if (hierarchy && hierarchy.success && hierarchy.data) {
+                    const nodeCount = this.countNodes(hierarchy.data);
+                    let componentCount = 0;
+
+                    // Count components by traversing the hierarchy
+                    const countComponents = (nodes: any[]): void => {
+                        for (const node of nodes) {
+                            if (node.components) {
+                                componentCount += node.components.length;
+                            }
+                            if (node.children) {
+                                countComponents(node.children);
+                            }
+                        }
+                    };
+                    countComponents(hierarchy.data);
+
+                    const perfStats: PerformanceStats = {
+                        nodeCount: nodeCount,
+                        componentCount: componentCount,
+                        drawCalls: 0, // Not available in edit mode
+                        triangles: 0, // Not available in edit mode
+                        memory: process.memoryUsage()
+                    };
+                    resolve({ success: true, data: perfStats });
+                } else {
+                    // Fallback to basic stats
+                    resolve({
+                        success: true,
+                        data: {
+                            nodeCount: 0,
+                            componentCount: 0,
+                            drawCalls: 0,
+                            triangles: 0,
+                            memory: process.memoryUsage(),
+                            message: 'Performance stats limited in edit mode'
+                        }
+                    });
+                }
+            } catch (err: any) {
                 // Fallback to basic stats
                 resolve({
                     success: true,
                     data: {
+                        nodeCount: 0,
+                        componentCount: 0,
+                        drawCalls: 0,
+                        triangles: 0,
+                        memory: process.memoryUsage(),
                         message: 'Performance stats not available in edit mode'
                     }
                 });
-            });
+            }
         });
     }
 
@@ -354,29 +420,30 @@ export class DebugTools implements ToolExecutor {
         try {
             // Check for missing assets
             if (options.checkMissingAssets) {
-                const assetCheck = await Editor.Message.request('scene', 'check-missing-assets');
-                if (assetCheck && assetCheck.missing) {
-                    issues.push({
-                        type: 'error',
-                        category: 'assets',
-                        message: `Found ${assetCheck.missing.length} missing asset references`,
-                        details: assetCheck.missing
-                    });
-                }
+                // In 2.x, missing asset checking is not directly available via API
+                // This would need to be implemented by traversing scene nodes and checking component references
+                // For now, we'll skip this check or implement a basic version
+                // Note: Full asset validation would require more complex implementation
             }
 
             // Check for performance issues
             if (options.checkPerformance) {
-                const hierarchy = await Editor.Message.request('scene', 'query-hierarchy');
-                const nodeCount = this.countNodes(hierarchy.children);
+                try {
+                    const hierarchy = Editor.Scene.callSceneScript('cocos-mcp-server', 'getSceneHierarchy', false);
+                    if (hierarchy && hierarchy.success && hierarchy.data) {
+                        const nodeCount = this.countNodes(hierarchy.data);
 
-                if (nodeCount > 1000) {
-                    issues.push({
-                        type: 'warning',
-                        category: 'performance',
-                        message: `High node count: ${nodeCount} nodes (recommended < 1000)`,
-                        suggestion: 'Consider using object pooling or scene optimization'
-                    });
+                        if (nodeCount > 1000) {
+                            issues.push({
+                                type: 'warning',
+                                category: 'performance',
+                                message: `High node count: ${nodeCount} nodes (recommended < 1000)`,
+                                suggestion: 'Consider using object pooling or scene optimization'
+                            });
+                        }
+                    }
+                } catch (err: any) {
+                    // If hierarchy query fails, skip performance check
                 }
             }
 
@@ -414,7 +481,7 @@ export class DebugTools implements ToolExecutor {
             project: {
                 name: Editor.Project.name,
                 path: Editor.Project.path,
-                uuid: Editor.Project.uuid
+                id: Editor.Project.id
             },
             memory: process.memoryUsage(),
             uptime: process.uptime()
@@ -431,7 +498,7 @@ export class DebugTools implements ToolExecutor {
                 Editor.Project ? Editor.Project.path : null,
                 '/Users/lizhiyong/NewProject_3',
                 process.cwd(),
-            ].filter(p => p !== null);
+            ].filter(p => p !== null) as string[];
 
             for (const basePath of possiblePaths) {
                 const testPath = path.join(basePath, 'temp/logs/project.log');
@@ -500,7 +567,7 @@ export class DebugTools implements ToolExecutor {
                 Editor.Project ? Editor.Project.path : null,
                 '/Users/lizhiyong/NewProject_3',
                 process.cwd(),
-            ].filter(p => p !== null);
+            ].filter(p => p !== null) as string[];
 
             for (const basePath of possiblePaths) {
                 const testPath = path.join(basePath, 'temp/logs/project.log');
@@ -549,7 +616,7 @@ export class DebugTools implements ToolExecutor {
                 Editor.Project ? Editor.Project.path : null,
                 '/Users/lizhiyong/NewProject_3',
                 process.cwd(),
-            ].filter(p => p !== null);
+            ].filter(p => p !== null) as string[];
 
             for (const basePath of possiblePaths) {
                 const testPath = path.join(basePath, 'temp/logs/project.log');

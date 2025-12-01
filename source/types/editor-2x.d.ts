@@ -26,6 +26,7 @@ declare namespace Editor {
     namespace Project {
         const path: string;
         const name: string;
+        const id: string;
     }
 
     namespace Scene {
