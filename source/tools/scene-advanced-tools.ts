@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
 
 export class SceneAdvancedTools implements ToolExecutor {
@@ -410,10 +412,10 @@ export class SceneAdvancedTools implements ToolExecutor {
 
     private async resetNodeProperty(uuid: string, path: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'reset-property', { 
-                uuid, 
-                path, 
-                dump: { value: null } 
+            Editor.Message.request('scene', 'reset-property', {
+                uuid,
+                path,
+                dump: { value: null }
             }).then(() => {
                 resolve({
                     success: true,

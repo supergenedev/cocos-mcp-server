@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor, SceneInfo } from '../types';
 
 export class SceneTools implements ToolExecutor {
@@ -123,81 +125,60 @@ export class SceneTools implements ToolExecutor {
 
     private async getCurrentScene(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 直接使用 query-node-tree 来获取场景信息（这个方法已经验证可用）
-            Editor.Message.request('scene', 'query-node-tree').then((tree: any) => {
-                if (tree && tree.uuid) {
-                    resolve({
-                        success: true,
-                        data: {
-                            name: tree.name || 'Current Scene',
-                            uuid: tree.uuid,
-                            type: tree.type || 'cc.Scene',
-                            active: tree.active !== undefined ? tree.active : true,
-                            nodeCount: tree.children ? tree.children.length : 0
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: 'No scene data available' });
-                }
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'getCurrentSceneInfo',
-                    args: []
-                };
-                
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
+            try {
+                // In 2.x, use Editor.Scene.callSceneScript to execute scene scripts
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'getCurrentSceneInfo');
+                if (result && result.success) {
                     resolve(result);
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Direct API failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to get scene info' });
+                }
+            } catch (err: any) {
+                resolve({ success: false, error: err.message });
+            }
         });
     }
 
     private async getSceneList(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // Note: query-assets API corrected with proper parameters
-            Editor.Message.request('asset-db', 'query-assets', {
-                pattern: 'db://assets/**/*.scene'
-            }).then((results: any[]) => {
-                const scenes: SceneInfo[] = results.map(asset => ({
-                    name: asset.name,
+            // In 2.x, use Editor.assetdb (lowercase)
+            Editor.assetdb.queryAssets('db://assets/**/*.scene', 'scene', (err, results) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                    return;
+                }
+
+                const scenes: SceneInfo[] = results.map((asset: any) => ({
+                    name: asset.name || asset.basename,
                     path: asset.url,
                     uuid: asset.uuid
                 }));
                 resolve({ success: true, data: scenes });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
             });
         });
     }
 
     private async openScene(scenePath: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 首先获取场景的UUID
-            Editor.Message.request('asset-db', 'query-uuid', scenePath).then((uuid: string | null) => {
-                if (!uuid) {
-                    throw new Error('Scene not found');
+            // In 2.x, use Editor.Ipc to send messages
+            Editor.Ipc.sendToMain('scene:open-scene', scenePath, (err: Error | null) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                } else {
+                    resolve({ success: true, message: `Scene opened: ${scenePath}` });
                 }
-                
-                // 使用正确的 scene API 打开场景 (需要UUID)
-                return Editor.Message.request('scene', 'open-scene', uuid);
-            }).then(() => {
-                resolve({ success: true, message: `Scene opened: ${scenePath}` });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
             });
         });
     }
 
     private async saveScene(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'save-scene').then(() => {
-                resolve({ success: true, message: 'Scene saved successfully' });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            Editor.Ipc.sendToMain('scene:save-scene', (err: Error | null) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                } else {
+                    resolve({ success: true, message: 'Scene saved successfully' });
+                }
             });
         });
     }
@@ -206,7 +187,7 @@ export class SceneTools implements ToolExecutor {
         return new Promise((resolve) => {
             // 确保路径以.scene结尾
             const fullPath = savePath.endsWith('.scene') ? savePath : `${savePath}/${sceneName}.scene`;
-            
+
             // 使用正确的Cocos Creator 3.8场景格式
             const sceneContent = JSON.stringify([
                 {
@@ -362,8 +343,14 @@ export class SceneTools implements ToolExecutor {
                     "_depth": 8
                 }
             ], null, 2);
-            
-            Editor.Message.request('asset-db', 'create-asset', fullPath, sceneContent).then((result: any) => {
+
+            // In 2.x, use Editor.assetdb.create (lowercase)
+            Editor.assetdb.create(fullPath, sceneContent, (err, result) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                    return;
+                }
+
                 // Verify scene creation by checking if it exists
                 this.getSceneList().then((sceneList) => {
                     const createdScene = sceneList.data?.find((scene: any) => scene.uuid === result.uuid);
@@ -389,39 +376,23 @@ export class SceneTools implements ToolExecutor {
                         }
                     });
                 });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
             });
         });
     }
 
     private async getSceneHierarchy(includeComponents: boolean = false): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 优先尝试使用 Editor API 查询场景节点树
-            Editor.Message.request('scene', 'query-node-tree').then((tree: any) => {
-                if (tree) {
-                    const hierarchy = this.buildHierarchy(tree, includeComponents);
-                    resolve({
-                        success: true,
-                        data: hierarchy
-                    });
-                } else {
-                    resolve({ success: false, error: 'No scene hierarchy available' });
-                }
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'getSceneHierarchy',
-                    args: [includeComponents]
-                };
-                
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
+            try {
+                // In 2.x, use Editor.Scene.callSceneScript to execute scene scripts
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'getSceneHierarchy', includeComponents);
+                if (result && result.success) {
                     resolve(result);
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Direct API failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to get scene hierarchy' });
+                }
+            } catch (err: any) {
+                resolve({ success: false, error: err.message });
+            }
         });
     }
 
@@ -442,7 +413,7 @@ export class SceneTools implements ToolExecutor {
         }
 
         if (node.children) {
-            nodeInfo.children = node.children.map((child: any) => 
+            nodeInfo.children = node.children.map((child: any) =>
                 this.buildHierarchy(child, includeComponents)
             );
         }
@@ -452,30 +423,34 @@ export class SceneTools implements ToolExecutor {
 
     private async saveSceneAs(path: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // save-as-scene API 不接受路径参数，会弹出对话框让用户选择
-            (Editor.Message.request as any)('scene', 'save-as-scene').then(() => {
-                resolve({
-                    success: true,
-                    data: {
-                        path: path,
-                        message: `Scene save-as dialog opened`
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            // In 2.x, save-as-scene opens a dialog
+            Editor.Ipc.sendToMain('scene:save-as-scene', (err: Error | null) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                } else {
+                    resolve({
+                        success: true,
+                        data: {
+                            path: path,
+                            message: `Scene save-as dialog opened`
+                        }
+                    });
+                }
             });
         });
     }
 
     private async closeScene(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'close-scene').then(() => {
-                resolve({
-                    success: true,
-                    message: 'Scene closed successfully'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            Editor.Ipc.sendToMain('scene:close-scene', (err: Error | null) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                } else {
+                    resolve({
+                        success: true,
+                        message: 'Scene closed successfully'
+                    });
+                }
             });
         });
     }

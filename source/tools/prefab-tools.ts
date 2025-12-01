@@ -1,3 +1,6 @@
+/// <reference path="../types/editor-2x.d.ts" />
+/// <reference path="../types/cc-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor, PrefabInfo } from '../types';
 
 export class PrefabTools implements ToolExecutor {
@@ -212,9 +215,9 @@ export class PrefabTools implements ToolExecutor {
 
     private async getPrefabList(folder: string = 'db://assets'): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            const pattern = folder.endsWith('/') ? 
+            const pattern = folder.endsWith('/') ?
                 `${folder}**/*.prefab` : `${folder}/**/*.prefab`;
-            
+
             Editor.Message.request('asset-db', 'query-assets', {
                 pattern: pattern
             }).then((results: any[]) => {
@@ -237,7 +240,7 @@ export class PrefabTools implements ToolExecutor {
                 if (!assetInfo) {
                     throw new Error('Prefab not found');
                 }
-                
+
                 return Editor.Message.request('scene', 'load-asset', {
                     uuid: assetInfo.uuid
                 });
@@ -301,7 +304,7 @@ export class PrefabTools implements ToolExecutor {
                     prefabUuid: assetInfo.uuid,
                     prefabPath: args.prefabPath
                 });
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -313,8 +316,8 @@ export class PrefabTools implements ToolExecutor {
                     }
                 });
             } catch (err: any) {
-                resolve({ 
-                    success: false, 
+                resolve({
+                    success: false,
                     error: `预制体实例化失败: ${err.message}`,
                     instruction: '请检查预制体路径是否正确，确保预制体文件格式正确'
                 });
@@ -443,7 +446,7 @@ export class PrefabTools implements ToolExecutor {
             const fsPath = prefabPath.replace('db://assets/', 'assets/').replace('db://assets', 'assets');
             const fs = require('fs');
             const path = require('path');
-            
+
             // 尝试多个可能的项目根路径
             const possiblePaths = [
                 path.resolve(process.cwd(), '../../NewProject_3', fsPath),
@@ -506,7 +509,7 @@ export class PrefabTools implements ToolExecutor {
                 return Editor.Message.request('scene', 'create-node', createNodeOptions);
             }).then((nodeUuid: string | string[]) => {
                 const uuid = Array.isArray(nodeUuid) ? nodeUuid[0] : nodeUuid;
-                
+
                 // 如果指定了位置，设置节点位置
                 if (args.position && uuid) {
                     Editor.Message.request('scene', 'set-property', {
@@ -717,12 +720,12 @@ export class PrefabTools implements ToolExecutor {
                 // 第四步：更新预制体文件内容
                 console.log('更新预制体文件内容...');
                 const updateResult = await this.updateAssetWithAssetDB(savePath, prefabContentString);
-                
+
                 // 第五步：创建对应的meta文件（使用实际UUID）
                 console.log('创建预制体meta文件...');
                 const metaContent = this.createStandardMetaContent(prefabName, actualPrefabUuid);
                 const metaResult = await this.createMetaWithAssetDB(savePath, metaContent);
-                
+
                 // 第六步：重新导入资源以更新引用
                 console.log('重新导入预制体资源...');
                 const reimportResult = await this.reimportAssetWithAssetDB(savePath);
@@ -730,7 +733,7 @@ export class PrefabTools implements ToolExecutor {
                 // 第七步：尝试将原始节点转换为预制体实例
                 console.log('尝试将原始节点转换为预制体实例...');
                 const convertResult = await this.convertNodeToPrefabInstance(nodeUuid, actualPrefabUuid, savePath);
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -772,7 +775,7 @@ export class PrefabTools implements ToolExecutor {
                 }
 
                 const prefabName = args.prefabName || 'NewPrefab';
-                const fullPath = pathParam.endsWith('.prefab') ? 
+                const fullPath = pathParam.endsWith('.prefab') ?
                     pathParam : `${pathParam}/${prefabName}.prefab`;
 
                 const includeChildren = args.includeChildren !== false; // 默认为 true
@@ -863,7 +866,7 @@ export class PrefabTools implements ToolExecutor {
                 if (saveResult.success) {
                     // 保存成功后，将原始节点转换为预制体实例
                     const convertResult = await this.convertNodeToPrefabInstance(nodeUuid, prefabPath, prefabUuid);
-                    
+
                     resolve({
                         success: true,
                         data: {
@@ -872,8 +875,8 @@ export class PrefabTools implements ToolExecutor {
                             nodeUuid: nodeUuid,
                             prefabName: prefabName,
                             convertedToPrefabInstance: convertResult.success,
-                            message: convertResult.success ? 
-                                '自定义预制体创建成功，原始节点已转换为预制体实例' : 
+                            message: convertResult.success ?
+                                '自定义预制体创建成功，原始节点已转换为预制体实例' :
                                 '预制体创建成功，但节点转换失败'
                         }
                     });
@@ -904,7 +907,7 @@ export class PrefabTools implements ToolExecutor {
                 }
 
                 console.log(`获取节点 ${nodeUuid} 的基本信息成功`);
-                
+
                 // 使用query-node-tree获取包含子节点的完整结构
                 const nodeTree = await this.getNodeWithChildren(nodeUuid);
                 if (nodeTree) {
@@ -934,7 +937,7 @@ export class PrefabTools implements ToolExecutor {
             const targetNode = this.findNodeInTree(tree, nodeUuid);
             if (targetNode) {
                 console.log(`在场景树中找到节点 ${nodeUuid}，子节点数量: ${targetNode.children ? targetNode.children.length : 0}`);
-                
+
                 // 增强节点树，获取每个节点的正确组件信息
                 const enhancedTree = await this.enhanceTreeWithMCPComponents(targetNode);
                 return enhancedTree;
@@ -950,7 +953,7 @@ export class PrefabTools implements ToolExecutor {
     // 在节点树中递归查找指定UUID的节点
     private findNodeInTree(node: any, targetUuid: string): any {
         if (!node) return null;
-        
+
         // 检查当前节点
         if (node.uuid === targetUuid || node.value?.uuid === targetUuid) {
             return node;
@@ -994,7 +997,7 @@ export class PrefabTools implements ToolExecutor {
                     "id": Date.now()
                 })
             });
-            
+
             const mcpResult = await response.json();
             if (mcpResult.result?.content?.[0]?.text) {
                 const componentData = JSON.parse(mcpResult.result.content[0].text);
@@ -1045,10 +1048,10 @@ export class PrefabTools implements ToolExecutor {
     private isValidNodeData(nodeData: any): boolean {
         if (!nodeData) return false;
         if (typeof nodeData !== 'object') return false;
-        
+
         // 检查基本属性 - 适配query-node-tree的数据格式
-        return nodeData.hasOwnProperty('uuid') || 
-               nodeData.hasOwnProperty('name') || 
+        return nodeData.hasOwnProperty('uuid') ||
+               nodeData.hasOwnProperty('name') ||
                nodeData.hasOwnProperty('__type__') ||
                (nodeData.value && (
                    nodeData.value.hasOwnProperty('uuid') ||
@@ -1060,33 +1063,33 @@ export class PrefabTools implements ToolExecutor {
     // 提取子节点UUID的统一方法
     private extractChildUuid(childRef: any): string | null {
         if (!childRef) return null;
-        
+
         // 方法1: 直接字符串
         if (typeof childRef === 'string') {
             return childRef;
         }
-        
+
         // 方法2: value属性包含字符串
         if (childRef.value && typeof childRef.value === 'string') {
             return childRef.value;
         }
-        
+
         // 方法3: value.uuid属性
         if (childRef.value && childRef.value.uuid) {
             return childRef.value.uuid;
         }
-        
+
         // 方法4: 直接uuid属性
         if (childRef.uuid) {
             return childRef.uuid;
         }
-        
+
         // 方法5: __id__引用 - 这种情况需要特殊处理
         if (childRef.__id__ !== undefined) {
             console.log(`发现__id__引用: ${childRef.__id__}，可能需要从数据结构中查找`);
             return null; // 暂时返回null，后续可以添加引用解析逻辑
         }
-        
+
         console.warn('无法提取子节点UUID:', JSON.stringify(childRef));
         return null;
     }
@@ -1094,7 +1097,7 @@ export class PrefabTools implements ToolExecutor {
     // 获取需要处理的子节点数据
     private getChildrenToProcess(nodeData: any): any[] {
         const children: any[] = [];
-        
+
         // 方法1: 直接从children数组获取（从query-node-tree返回的数据）
         if (nodeData.children && Array.isArray(nodeData.children)) {
             console.log(`从children数组获取子节点，数量: ${nodeData.children.length}`);
@@ -1110,7 +1113,7 @@ export class PrefabTools implements ToolExecutor {
         } else {
             console.log('节点没有子节点或children数组为空');
         }
-        
+
         return children;
     }
 
@@ -1156,7 +1159,7 @@ export class PrefabTools implements ToolExecutor {
         // 递归处理节点和组件
         const processNode = (node: any, parentId: number = 0): number => {
             const nodeId = idCounter++;
-            
+
             // 创建节点对象
             const processedNode = {
                 "__type__": "cc.Node",
@@ -1283,7 +1286,7 @@ export class PrefabTools implements ToolExecutor {
                 // 使用Editor API保存预制体文件
                 const prefabContent = JSON.stringify(prefabData, null, 2);
                 const metaContent = JSON.stringify(metaData, null, 2);
-                
+
                 // 尝试使用更可靠的保存方法
                 this.saveAssetFile(prefabPath, prefabContent).then(() => {
                     // 再创建meta文件
@@ -1392,7 +1395,7 @@ export class PrefabTools implements ToolExecutor {
         // 从 prefabPath 提取名称
         const prefabPath = args.prefabPath;
         const prefabName = prefabPath.split('/').pop()?.replace('.prefab', '') || 'NewPrefab';
-        
+
         // 调用原来的 createPrefab 方法
         return await this.createPrefab({
             nodeUuid: args.nodeUuid,
@@ -1419,7 +1422,7 @@ export class PrefabTools implements ToolExecutor {
                         try {
                             const prefabData = JSON.parse(content);
                             const validationResult = this.validatePrefabFormat(prefabData);
-                            
+
                             resolve({
                                 success: true,
                                 data: {
@@ -1505,7 +1508,7 @@ export class PrefabTools implements ToolExecutor {
         return new Promise(async (resolve) => {
             try {
                 const { sourcePrefabPath, targetPrefabPath, newPrefabName } = args;
-                
+
                 // 读取源预制体
                 const sourceInfo = await this.getPrefabInfo(sourcePrefabPath);
                 if (!sourceInfo.success) {
@@ -1528,13 +1531,13 @@ export class PrefabTools implements ToolExecutor {
 
                 // 生成新的UUID
                 const newUuid = this.generateUUID();
-                
+
                 // 修改预制体数据
                 const modifiedData = this.modifyPrefabForDuplication(sourceContent.data, newPrefabName, newUuid);
-                
+
                 // 创建新的meta数据
                 const newMetaData = this.createMetaData(newPrefabName || 'DuplicatedPrefab', newUuid);
-                
+
                 // 预制体复制功能暂时禁用，因为涉及复杂的序列化格式
                 resolve({
                     success: false,
@@ -1569,7 +1572,7 @@ export class PrefabTools implements ToolExecutor {
     private modifyPrefabForDuplication(prefabData: any[], newName: string, newUuid: string): any[] {
         // 修改预制体数据以创建副本
         const modifiedData = [...prefabData];
-        
+
         // 修改第一个元素（预制体资产）
         if (modifiedData[0] && modifiedData[0].__type__ === 'cc.Prefab') {
             modifiedData[0]._name = newName || 'DuplicatedPrefab';
@@ -1577,7 +1580,7 @@ export class PrefabTools implements ToolExecutor {
 
         // 更新所有UUID引用（简化版本）
         // 在实际应用中，可能需要更复杂的UUID映射处理
-        
+
         return modifiedData;
     }
 
@@ -1651,7 +1654,7 @@ export class PrefabTools implements ToolExecutor {
      */
     private async createStandardPrefabContent(nodeData: any, prefabName: string, prefabUuid: string, includeChildren: boolean, includeComponents: boolean): Promise<any[]> {
         console.log('开始创建引擎标准预制体内容...');
-        
+
         const prefabData: any[] = [];
         let currentId = 0;
 
@@ -1686,7 +1689,7 @@ export class PrefabTools implements ToolExecutor {
 
         console.log(`预制体内容创建完成，总共 ${prefabData.length} 个对象`);
         console.log('节点fileId映射:', Array.from(context.nodeFileIds.entries()));
-        
+
         return prefabData;
     }
 
@@ -1694,13 +1697,13 @@ export class PrefabTools implements ToolExecutor {
      * 递归创建完整的节点树，包括所有子节点和对应的PrefabInfo
      */
     private async createCompleteNodeTree(
-        nodeData: any, 
-        parentNodeIndex: number | null, 
+        nodeData: any,
+        parentNodeIndex: number | null,
         nodeIndex: number,
-        context: { 
-            prefabData: any[], 
-            currentId: number, 
-            prefabAssetIndex: number, 
+        context: {
+            prefabData: any[],
+            currentId: number,
+            prefabAssetIndex: number,
             nodeFileIds: Map<string, string>,
             nodeUuidToIndex: Map<string, number>,
             componentUuidToIndex: Map<string, number>
@@ -1710,22 +1713,22 @@ export class PrefabTools implements ToolExecutor {
         nodeName?: string
     ): Promise<void> {
         const { prefabData } = context;
-        
+
         // 创建节点对象
         const node = this.createEngineStandardNode(nodeData, parentNodeIndex, nodeName);
-        
+
         // 确保节点在指定的索引位置
         while (prefabData.length <= nodeIndex) {
             prefabData.push(null);
         }
         console.log(`设置节点到索引 ${nodeIndex}: ${node._name}, _parent:`, node._parent, `_children count: ${node._children.length}`);
         prefabData[nodeIndex] = node;
-        
+
         // 为当前节点生成fileId并记录UUID到索引的映射
         const nodeUuid = this.extractNodeUuid(nodeData);
         const fileId = nodeUuid || this.generateFileId();
         context.nodeFileIds.set(nodeIndex.toString(), fileId);
-        
+
         // 记录节点UUID到索引的映射
         if (nodeUuid) {
             context.nodeUuidToIndex.set(nodeUuid, nodeIndex);
@@ -1736,7 +1739,7 @@ export class PrefabTools implements ToolExecutor {
         const childrenToProcess = this.getChildrenToProcess(nodeData);
         if (includeChildren && childrenToProcess.length > 0) {
             console.log(`处理节点 ${node._name} 的 ${childrenToProcess.length} 个子节点`);
-            
+
             // 为每个子节点分配索引
             const childIndices: number[] = [];
             console.log(`准备为 ${childrenToProcess.length} 个子节点分配索引，当前ID: ${context.currentId}`);
@@ -1754,9 +1757,9 @@ export class PrefabTools implements ToolExecutor {
                 const childData = childrenToProcess[i];
                 const childIndex = childIndices[i];
                 await this.createCompleteNodeTree(
-                    childData, 
-                    nodeIndex, 
-                    childIndex, 
+                    childData,
+                    nodeIndex,
+                    childIndex,
                     context,
                     includeChildren,
                     includeComponents,
@@ -1768,37 +1771,37 @@ export class PrefabTools implements ToolExecutor {
         // 然后处理组件
         if (includeComponents && nodeData.components && Array.isArray(nodeData.components)) {
             console.log(`处理节点 ${node._name} 的 ${nodeData.components.length} 个组件`);
-            
+
             const componentIndices: number[] = [];
             for (const component of nodeData.components) {
                 const componentIndex = context.currentId++;
                 componentIndices.push(componentIndex);
                 node._components.push({ "__id__": componentIndex });
-                
+
                 // 记录组件UUID到索引的映射
                 const componentUuid = component.uuid || (component.value && component.value.uuid);
                 if (componentUuid) {
                     context.componentUuidToIndex.set(componentUuid, componentIndex);
                     console.log(`记录组件UUID映射: ${componentUuid} -> ${componentIndex}`);
                 }
-                
+
                 // 创建组件对象，传入context以处理引用
                 const componentObj = this.createComponentObject(component, nodeIndex, context);
                 prefabData[componentIndex] = componentObj;
-                
+
                 // 为组件创建 CompPrefabInfo
                 const compPrefabInfoIndex = context.currentId++;
                 prefabData[compPrefabInfoIndex] = {
                     "__type__": "cc.CompPrefabInfo",
                     "fileId": this.generateFileId()
                 };
-                
+
                 // 如果组件对象有 __prefab 属性，设置引用
                 if (componentObj && typeof componentObj === 'object') {
                     componentObj.__prefab = { "__id__": compPrefabInfoIndex };
                 }
             }
-            
+
             console.log(`✅ 节点 ${node._name} 添加了 ${componentIndices.length} 个组件`);
         }
 
@@ -1806,7 +1809,7 @@ export class PrefabTools implements ToolExecutor {
         // 为当前节点创建PrefabInfo
         const prefabInfoIndex = context.currentId++;
         node._prefab = { "__id__": prefabInfoIndex };
-        
+
         const prefabInfo: any = {
             "__type__": "cc.PrefabInfo",
             "root": { "__id__": 1 },
@@ -1815,7 +1818,7 @@ export class PrefabTools implements ToolExecutor {
             "targetOverrides": null,
             "nestedPrefabInstanceRoots": null
         };
-        
+
         // 根节点的特殊处理
         if (nodeIndex === 1) {
             // 根节点没有instance，但可能有targetOverrides
@@ -1824,7 +1827,7 @@ export class PrefabTools implements ToolExecutor {
             // 子节点通常有instance为null
             prefabInfo.instance = null;
         }
-        
+
         prefabData[prefabInfoIndex] = prefabInfo;
         context.currentId = prefabInfoIndex + 1;
     }
@@ -1836,58 +1839,58 @@ export class PrefabTools implements ToolExecutor {
      */
     private uuidToCompressedId(uuid: string): string {
         const BASE64_KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-        
+
         // 移除连字符并转为小写
         const cleanUuid = uuid.replace(/-/g, '').toLowerCase();
-        
+
         // 确保UUID有效
         if (cleanUuid.length !== 32) {
             return uuid; // 如果不是有效的UUID，返回原始值
         }
-        
+
         // Cocos Creator的压缩算法：前5个字符保持不变，剩余27个字符压缩成18个字符
         let result = cleanUuid.substring(0, 5);
-        
+
         // 剩余27个字符需要压缩成18个字符
         const remainder = cleanUuid.substring(5);
-        
+
         // 每3个hex字符压缩成2个字符
         for (let i = 0; i < remainder.length; i += 3) {
             const hex1 = remainder[i] || '0';
             const hex2 = remainder[i + 1] || '0';
             const hex3 = remainder[i + 2] || '0';
-            
+
             // 将3个hex字符(12位)转换为2个base64字符
             const value = parseInt(hex1 + hex2 + hex3, 16);
-            
+
             // 12位分成两个6位
             const high6 = (value >> 6) & 63;
             const low6 = value & 63;
-            
+
             result += BASE64_KEYS[high6] + BASE64_KEYS[low6];
         }
-        
+
         return result;
     }
 
     /**
      * 创建组件对象
      */
-    private createComponentObject(componentData: any, nodeIndex: number, context?: { 
+    private createComponentObject(componentData: any, nodeIndex: number, context?: {
         nodeUuidToIndex?: Map<string, number>,
         componentUuidToIndex?: Map<string, number>
     }): any {
         let componentType = componentData.type || componentData.__type__ || 'cc.Component';
         const enabled = componentData.enabled !== undefined ? componentData.enabled : true;
-        
+
         // console.log(`创建组件对象 - 原始类型: ${componentType}`);
         // console.log('组件完整数据:', JSON.stringify(componentData, null, 2));
-        
+
         // 处理脚本组件 - MCP接口已经返回正确的压缩UUID格式
         if (componentType && !componentType.startsWith('cc.')) {
             console.log(`使用脚本组件压缩UUID类型: ${componentType}`);
         }
-        
+
         // 基础组件结构
         const component: any = {
             "__type__": componentType,
@@ -1897,15 +1900,15 @@ export class PrefabTools implements ToolExecutor {
             "node": { "__id__": nodeIndex },
             "_enabled": enabled
         };
-        
+
         // 提前设置 __prefab 属性占位符，后续会被正确设置
         component.__prefab = null;
-        
+
         // 根据组件类型添加特定属性
         if (componentType === 'cc.UITransform') {
             const contentSize = componentData.properties?.contentSize?.value || { width: 100, height: 100 };
             const anchorPoint = componentData.properties?.anchorPoint?.value || { x: 0.5, y: 0.5 };
-            
+
             component._contentSize = {
                 "__type__": "cc.Size",
                 "width": contentSize.width,
@@ -1924,7 +1927,7 @@ export class PrefabTools implements ToolExecutor {
             } else {
                 component._spriteFrame = null;
             }
-            
+
             component._type = componentData.properties?._type?.value ?? 0;
             component._fillType = componentData.properties?._fillType?.value ?? 0;
             component._sizeMode = componentData.properties?._sizeMode?.value ?? 1;
@@ -1933,7 +1936,7 @@ export class PrefabTools implements ToolExecutor {
             component._fillRange = componentData.properties?._fillRange?.value ?? 0;
             component._isTrimmedMode = componentData.properties?._isTrimmedMode?.value ?? true;
             component._useGrayscale = componentData.properties?._useGrayscale?.value ?? false;
-            
+
             // 调试：打印Sprite组件的所有属性（已注释）
             // console.log('Sprite组件属性:', JSON.stringify(componentData.properties, null, 2));
             component._atlas = null;
@@ -1982,11 +1985,11 @@ export class PrefabTools implements ToolExecutor {
         } else if (componentData.properties) {
             // 处理所有组件的属性（包括内置组件和自定义脚本组件）
             for (const [key, value] of Object.entries(componentData.properties)) {
-                if (key === 'node' || key === 'enabled' || key === '__type__' || 
+                if (key === 'node' || key === 'enabled' || key === '__type__' ||
                     key === 'uuid' || key === 'name' || key === '__scriptAsset' || key === '_objFlags') {
                     continue; // 跳过这些特殊属性，包括_objFlags
                 }
-                
+
                 // 对于以下划线开头的属性，需要特殊处理
                 if (key.startsWith('_')) {
                     // 确保属性名保持原样（包括下划线）
@@ -2003,19 +2006,19 @@ export class PrefabTools implements ToolExecutor {
                 }
             }
         }
-        
+
         // 确保 _id 在最后位置
         const _id = component._id || "";
         delete component._id;
         component._id = _id;
-        
+
         return component;
     }
 
     /**
      * 处理组件属性值，确保格式与手动创建的预制体一致
      */
-    private processComponentProperty(propData: any, context?: { 
+    private processComponentProperty(propData: any, context?: {
         nodeUuidToIndex?: Map<string, number>,
         componentUuidToIndex?: Map<string, number>
     }): any {
@@ -2052,8 +2055,8 @@ export class PrefabTools implements ToolExecutor {
 
         // 处理资源引用（预制体、纹理、精灵帧等）
         if (value?.uuid && (
-            type === 'cc.Prefab' || 
-            type === 'cc.Texture2D' || 
+            type === 'cc.Prefab' ||
+            type === 'cc.Texture2D' ||
             type === 'cc.SpriteFrame' ||
             type === 'cc.Material' ||
             type === 'cc.AnimationClip' ||
@@ -2070,10 +2073,10 @@ export class PrefabTools implements ToolExecutor {
         }
 
         // 处理组件引用（包括具体的组件类型如cc.Label, cc.Button等）
-        if (value?.uuid && (type === 'cc.Component' || 
-            type === 'cc.Label' || type === 'cc.Button' || type === 'cc.Sprite' || 
-            type === 'cc.UITransform' || type === 'cc.RigidBody2D' || 
-            type === 'cc.BoxCollider2D' || type === 'cc.Animation' || 
+        if (value?.uuid && (type === 'cc.Component' ||
+            type === 'cc.Label' || type === 'cc.Button' || type === 'cc.Sprite' ||
+            type === 'cc.UITransform' || type === 'cc.RigidBody2D' ||
+            type === 'cc.BoxCollider2D' || type === 'cc.Animation' ||
             type === 'cc.AudioSource' || (type?.startsWith('cc.') && !type.includes('@')))) {
             // 在预制体中，组件引用也需要转换为 __id__ 形式
             if (context?.componentUuidToIndex && context.componentUuidToIndex.has(value.uuid)) {
@@ -2107,7 +2110,7 @@ export class PrefabTools implements ToolExecutor {
                 };
             } else if (type === 'cc.Vec2') {
                 return {
-                    "__type__": "cc.Vec2", 
+                    "__type__": "cc.Vec2",
                     "x": Number(value.x) || 0,
                     "y": Number(value.y) || 0
                 };
@@ -2139,7 +2142,7 @@ export class PrefabTools implements ToolExecutor {
                     return null;
                 }).filter(item => item !== null);
             }
-            
+
             // 资源数组
             if (propData.elementTypeData?.type && propData.elementTypeData.type.startsWith('cc.')) {
                 return value.map(item => {
@@ -2174,14 +2177,14 @@ export class PrefabTools implements ToolExecutor {
     private createEngineStandardNode(nodeData: any, parentNodeIndex: number | null, nodeName?: string): any {
         // 调试：打印原始节点数据（已注释）
         // console.log('原始节点数据:', JSON.stringify(nodeData, null, 2));
-        
+
         // 提取节点的基本属性
         const getValue = (prop: any) => {
             if (prop?.value !== undefined) return prop.value;
             if (prop !== undefined) return prop;
             return null;
         };
-        
+
         const position = getValue(nodeData.position) || getValue(nodeData.value?.position) || { x: 0, y: 0, z: 0 };
         const rotation = getValue(nodeData.rotation) || getValue(nodeData.value?.rotation) || { x: 0, y: 0, z: 0, w: 1 };
         const scale = getValue(nodeData.scale) || getValue(nodeData.value?.scale) || { x: 1, y: 1, z: 1 };
@@ -2241,7 +2244,7 @@ export class PrefabTools implements ToolExecutor {
      */
     private extractNodeUuid(nodeData: any): string | null {
         if (!nodeData) return null;
-        
+
         // 尝试多种方式获取UUID
         const sources = [
             nodeData.uuid,
@@ -2251,13 +2254,13 @@ export class PrefabTools implements ToolExecutor {
             nodeData.id,
             nodeData.value?.id
         ];
-        
+
         for (const source of sources) {
             if (typeof source === 'string' && source.length > 0) {
                 return source;
             }
         }
-        
+
         return null;
     }
 
@@ -2271,7 +2274,7 @@ export class PrefabTools implements ToolExecutor {
             if (prop !== undefined) return prop;
             return null;
         };
-        
+
         const position = getValue(nodeData.position) || getValue(nodeData.value?.position) || { x: 0, y: 0, z: 0 };
         const rotation = getValue(nodeData.rotation) || getValue(nodeData.value?.rotation) || { x: 0, y: 0, z: 0, w: 1 };
         const scale = getValue(nodeData.scale) || getValue(nodeData.value?.scale) || { x: 1, y: 1, z: 1 };
@@ -2439,14 +2442,14 @@ export class PrefabTools implements ToolExecutor {
 
     private async createNodeObject(nodeData: any, parentId: number | null, prefabData: any[], currentId: number): Promise<{ node: any; nextId: number }> {
         const nodeId = currentId++;
-        
+
         // 提取节点的基本属性 - 适配query-node-tree的数据格式
         const getValue = (prop: any) => {
             if (prop?.value !== undefined) return prop.value;
             if (prop !== undefined) return prop;
             return null;
         };
-        
+
         const position = getValue(nodeData.position) || getValue(nodeData.value?.position) || { x: 0, y: 0, z: 0 };
         const rotation = getValue(nodeData.rotation) || getValue(nodeData.value?.rotation) || { x: 0, y: 0, z: 0, w: 1 };
         const scale = getValue(nodeData.scale) || getValue(nodeData.value?.scale) || { x: 1, y: 1, z: 1 };
@@ -2499,7 +2502,7 @@ export class PrefabTools implements ToolExecutor {
         // 暂时跳过UITransform组件以避免_getDependComponent错误
         // 后续通过Engine API动态添加
         console.log(`节点 ${name} 暂时跳过UITransform组件，避免引擎依赖错误`);
-        
+
         // 处理其他组件（暂时跳过，专注于修复UITransform问题）
         const components = this.extractComponentsFromNode(nodeData);
         if (components.length > 0) {
@@ -2511,25 +2514,25 @@ export class PrefabTools implements ToolExecutor {
         if (childrenToProcess.length > 0) {
             console.log(`=== 处理子节点 ===`);
             console.log(`节点 ${name} 包含 ${childrenToProcess.length} 个子节点`);
-            
+
             for (let i = 0; i < childrenToProcess.length; i++) {
                 const childData = childrenToProcess[i];
                 const childName = childData.name || childData.value?.name || '未知';
                 console.log(`处理第${i + 1}个子节点: ${childName}`);
-                
+
                 try {
                     const childId = currentId;
                     node._children.push({ "__id__": childId });
-                    
+
                     // 递归创建子节点
                     const childResult = await this.createNodeObject(childData, nodeId, prefabData, currentId);
                     prefabData.push(childResult.node);
                     currentId = childResult.nextId;
-                    
+
                     // 子节点不需要PrefabInfo，只有根节点需要
                     // 子节点的_prefab应该设置为null
                     childResult.node._prefab = null;
-                    
+
                     console.log(`✅ 成功添加子节点: ${childName}`);
                 } catch (error) {
                     console.error(`处理子节点 ${childName} 时出错:`, error);
@@ -2543,7 +2546,7 @@ export class PrefabTools implements ToolExecutor {
     // 从节点数据中提取组件信息
     private extractComponentsFromNode(nodeData: any): any[] {
         const components: any[] = [];
-        
+
         // 从不同位置尝试获取组件数据
         const componentSources = [
             nodeData.__comps__,
@@ -2551,26 +2554,26 @@ export class PrefabTools implements ToolExecutor {
             nodeData.value?.__comps__,
             nodeData.value?.components
         ];
-        
+
         for (const source of componentSources) {
             if (Array.isArray(source)) {
                 components.push(...source.filter(comp => comp && (comp.__type__ || comp.type)));
                 break; // 找到有效的组件数组就退出
             }
         }
-        
+
         return components;
     }
-    
+
     // 创建标准的组件对象
     private createStandardComponentObject(componentData: any, nodeId: number, prefabInfoId: number): any {
         const componentType = componentData.__type__ || componentData.type;
-        
+
         if (!componentType) {
             console.warn('组件缺少类型信息:', componentData);
             return null;
         }
-        
+
         // 基础组件结构 - 基于官方预制体格式
         const component: any = {
             "__type__": componentType,
@@ -2584,16 +2587,16 @@ export class PrefabTools implements ToolExecutor {
                 "__id__": prefabInfoId
             }
         };
-        
+
         // 根据组件类型添加特定属性
         this.addComponentSpecificProperties(component, componentData, componentType);
-        
+
         // 添加_id属性
         component._id = "";
-        
+
         return component;
     }
-    
+
     // 添加组件特定的属性
     private addComponentSpecificProperties(component: any, componentData: any, componentType: string): void {
         switch (componentType) {
@@ -2615,7 +2618,7 @@ export class PrefabTools implements ToolExecutor {
                 break;
         }
     }
-    
+
     // UITransform组件属性
     private addUITransformProperties(component: any, componentData: any): void {
         component._contentSize = this.createSizeObject(
@@ -2625,7 +2628,7 @@ export class PrefabTools implements ToolExecutor {
             this.getComponentPropertyValue(componentData, 'anchorPoint', { x: 0.5, y: 0.5 })
         );
     }
-    
+
     // Sprite组件属性
     private addSpriteProperties(component: any, componentData: any): void {
         component._visFlags = 0;
@@ -2646,7 +2649,7 @@ export class PrefabTools implements ToolExecutor {
         component._useGrayscale = false;
         component._atlas = null;
     }
-    
+
     // Label组件属性
     private addLabelProperties(component: any, componentData: any): void {
         component._visFlags = 0;
@@ -2673,7 +2676,7 @@ export class PrefabTools implements ToolExecutor {
         component._underlineHeight = 2;
         component._cacheMode = 0;
     }
-    
+
     // Button组件属性
     private addButtonProperties(component: any, componentData: any): void {
         component.clickEvents = [];
@@ -2686,12 +2689,12 @@ export class PrefabTools implements ToolExecutor {
         component._duration = 0.1;
         component._zoomScale = 1.2;
     }
-    
+
     // 添加通用属性
     private addGenericProperties(component: any, componentData: any): void {
         // 只复制安全的、已知的属性
         const safeProperties = ['enabled', 'color', 'string', 'fontSize', 'spriteFrame', 'type', 'sizeMode'];
-        
+
         for (const prop of safeProperties) {
             if (componentData.hasOwnProperty(prop)) {
                 const value = this.getComponentPropertyValue(componentData, prop);
@@ -2701,7 +2704,7 @@ export class PrefabTools implements ToolExecutor {
             }
         }
     }
-    
+
     // 创建Vec2对象
     private createVec2Object(data: any): any {
         return {
@@ -2710,7 +2713,7 @@ export class PrefabTools implements ToolExecutor {
             "y": data?.y || 0
         };
     }
-    
+
     // 创建Vec3对象
     private createVec3Object(data: any): any {
         return {
@@ -2720,7 +2723,7 @@ export class PrefabTools implements ToolExecutor {
             "z": data?.z || 0
         };
     }
-    
+
     // 创建Size对象
     private createSizeObject(data: any): any {
         return {
@@ -2729,7 +2732,7 @@ export class PrefabTools implements ToolExecutor {
             "height": data?.height || 100
         };
     }
-    
+
     // 创建Color对象
     private createColorObject(data: any): any {
         return {
@@ -2747,12 +2750,12 @@ export class PrefabTools implements ToolExecutor {
         if (key.startsWith('__') || key === '_enabled' || key === 'node' || key === 'enabled') {
             return false;
         }
-        
+
         // 跳过函数和undefined值
         if (typeof value === 'function' || value === undefined) {
             return false;
         }
-        
+
         return true;
     }
 
@@ -2763,37 +2766,37 @@ export class PrefabTools implements ToolExecutor {
         if (componentData[propertyName] !== undefined) {
             return this.extractValue(componentData[propertyName]);
         }
-        
+
         // 尝试从value属性中获取
         if (componentData.value && componentData.value[propertyName] !== undefined) {
             return this.extractValue(componentData.value[propertyName]);
         }
-        
+
         // 尝试带下划线前缀的属性名
         const prefixedName = `_${propertyName}`;
         if (componentData[prefixedName] !== undefined) {
             return this.extractValue(componentData[prefixedName]);
         }
-        
+
         return defaultValue;
     }
-    
+
     // 提取属性值
     private extractValue(data: any): any {
         if (data === null || data === undefined) {
             return data;
         }
-        
+
         // 如果有value属性，优先使用value
         if (typeof data === 'object' && data.hasOwnProperty('value')) {
             return data.value;
         }
-        
+
         // 如果是引用对象，保持原样
         if (typeof data === 'object' && (data.__id__ !== undefined || data.__uuid__ !== undefined)) {
             return data;
         }
-        
+
         return data;
     }
 

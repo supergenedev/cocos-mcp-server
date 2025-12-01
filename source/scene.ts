@@ -1,5 +1,10 @@
+/// <reference path="./types/cc-2x.d.ts" />
+/// <reference path="./types/editor-2x.d.ts" />
+
 import { join } from 'path';
-module.paths.push(join(Editor.App.path, 'node_modules'));
+module.paths.push(join(Editor.appPath, 'node_modules'));
+// Note: In Cocos Creator 2.x, 'cc' is available as a global variable in scene scripts
+// We don't need to require it like in 3.x
 
 export const methods: { [key: string]: (...any: any) => any } = {
     /**
@@ -7,10 +12,9 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     createNewScene() {
         try {
-            const { director, Scene } = require('cc');
-            const scene = new Scene();
+            const scene = new cc.Scene();
             scene.name = 'New Scene';
-            director.runScene(scene);
+            cc.director.runScene(scene);
             return { success: true, message: 'New scene created successfully' };
         } catch (error: any) {
             return { success: false, error: error.message };
@@ -22,8 +26,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     addComponentToNode(nodeUuid: string, componentType: string) {
         try {
-            const { director, js } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -35,15 +38,15 @@ export const methods: { [key: string]: (...any: any) => any } = {
             }
 
             // Get component class
-            const ComponentClass = js.getClassByName(componentType);
+            const ComponentClass = cc.js.getClassByName(componentType);
             if (!ComponentClass) {
                 return { success: false, error: `Component type ${componentType} not found` };
             }
 
             // Add component
-            const component = node.addComponent(ComponentClass);
-            return { 
-                success: true, 
+            const component = node.addComponent(ComponentClass as new () => cc.Component);
+            return {
+                success: true,
                 message: `Component ${componentType} added successfully`,
                 data: { componentId: component.uuid }
             };
@@ -57,8 +60,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     removeComponentFromNode(nodeUuid: string, componentType: string) {
         try {
-            const { director, js } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -68,12 +70,12 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 return { success: false, error: `Node with UUID ${nodeUuid} not found` };
             }
 
-            const ComponentClass = js.getClassByName(componentType);
+            const ComponentClass = cc.js.getClassByName(componentType);
             if (!ComponentClass) {
                 return { success: false, error: `Component type ${componentType} not found` };
             }
 
-            const component = node.getComponent(ComponentClass);
+            const component = node.getComponent(ComponentClass as new () => cc.Component);
             if (!component) {
                 return { success: false, error: `Component ${componentType} not found on node` };
             }
@@ -90,14 +92,13 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     createNode(name: string, parentUuid?: string) {
         try {
-            const { director, Node } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
 
-            const node = new Node(name);
-            
+            const node = new cc.Node(name);
+
             if (parentUuid) {
                 const parent = scene.getChildByUuid(parentUuid);
                 if (parent) {
@@ -109,8 +110,8 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 scene.addChild(node);
             }
 
-            return { 
-                success: true, 
+            return {
+                success: true,
                 message: `Node ${name} created successfully`,
                 data: { uuid: node.uuid, name: node.name }
             };
@@ -124,8 +125,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     getNodeInfo(nodeUuid: string) {
         try {
-            const { director } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -135,21 +135,28 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 return { success: false, error: `Node with UUID ${nodeUuid} not found` };
             }
 
+            // In 2.x, position is stored as x, y properties (for 2D) or position Vec3 (for 3D)
+            const posData = node.position ? {
+                x: (node.position as any).x || node.x,
+                y: (node.position as any).y || node.y,
+                z: (node.position as any).z || 0
+            } : { x: node.x, y: node.y, z: 0 };
+
             return {
                 success: true,
                 data: {
                     uuid: node.uuid,
                     name: node.name,
                     active: node.active,
-                    position: node.position,
-                    rotation: node.rotation,
-                    scale: node.scale,
+                    position: posData,
+                    rotation: node.rotation || 0,
+                    scale: { x: node.scaleX, y: node.scaleY, z: 1 },
                     parent: node.parent?.uuid,
                     children: node.children.map((child: any) => child.uuid),
-                    components: node.components.map((comp: any) => ({
-                        type: comp.constructor.name,
+                    components: (node as any)._components ? (node as any)._components.map((comp: any) => ({
+                        type: cc.js.getClassName(comp),
                         enabled: comp.enabled
-                    }))
+                    })) : []
                 }
             };
         } catch (error: any) {
@@ -162,8 +169,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     getAllNodes() {
         try {
-            const { director } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -176,12 +182,12 @@ export const methods: { [key: string]: (...any: any) => any } = {
                     active: node.active,
                     parent: node.parent?.uuid
                 });
-                
+
                 node.children.forEach((child: any) => collectNodes(child));
             };
 
             scene.children.forEach((child: any) => collectNodes(child));
-            
+
             return { success: true, data: nodes };
         } catch (error: any) {
             return { success: false, error: error.message };
@@ -193,8 +199,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     findNodeByName(name: string) {
         try {
-            const { director } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -210,7 +215,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
                     uuid: node.uuid,
                     name: node.name,
                     active: node.active,
-                    position: node.position
+                    position: { x: node.x, y: node.y }
                 }
             };
         } catch (error: any) {
@@ -223,8 +228,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     getCurrentSceneInfo() {
         try {
-            const { director } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -247,8 +251,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     setNodeProperty(nodeUuid: string, property: string, value: any) {
         try {
-            const { director } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -258,25 +261,37 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 return { success: false, error: `Node with UUID ${nodeUuid} not found` };
             }
 
-            // 设置属性
+            // Set property - 2.x uses different methods
             if (property === 'position') {
-                node.setPosition(value.x || 0, value.y || 0, value.z || 0);
+                node.setPosition(value.x || 0, value.y || 0);
             } else if (property === 'rotation') {
-                node.setRotationFromEuler(value.x || 0, value.y || 0, value.z || 0);
+                node.rotation = value;
             } else if (property === 'scale') {
-                node.setScale(value.x || 1, value.y || 1, value.z || 1);
+                node.setScale(value.x || 1, value.y || 1);
             } else if (property === 'active') {
                 node.active = value;
             } else if (property === 'name') {
                 node.name = value;
+            } else if (property === 'x') {
+                node.x = value;
+            } else if (property === 'y') {
+                node.y = value;
+            } else if (property === 'scaleX') {
+                node.scaleX = value;
+            } else if (property === 'scaleY') {
+                node.scaleY = value;
+            } else if (property === 'opacity') {
+                node.opacity = value;
+            } else if (property === 'color') {
+                node.color = new cc.Color(value.r || 255, value.g || 255, value.b || 255, value.a || 255);
             } else {
-                // 尝试直接设置属性
+                // Try to set property directly
                 (node as any)[property] = value;
             }
 
-            return { 
-                success: true, 
-                message: `Property '${property}' updated successfully` 
+            return {
+                success: true,
+                message: `Property '${property}' updated successfully`
             };
         } catch (error: any) {
             return { success: false, error: error.message };
@@ -288,8 +303,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     getSceneHierarchy(includeComponents: boolean = false) {
         try {
-            const { director } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -302,9 +316,9 @@ export const methods: { [key: string]: (...any: any) => any } = {
                     children: []
                 };
 
-                if (includeComponents) {
-                    result.components = node.components.map((comp: any) => ({
-                        type: comp.constructor.name,
+                if (includeComponents && node._components) {
+                    result.components = node._components.map((comp: any) => ({
+                        type: cc.js.getClassName(comp),
                         enabled: comp.enabled
                     }));
                 }
@@ -328,8 +342,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     createPrefabFromNode(nodeUuid: string, prefabPath: string) {
         try {
-            const { director, instantiate } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
@@ -339,8 +352,9 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 return { success: false, error: `Node with UUID ${nodeUuid} not found` };
             }
 
-            // 注意：这里只是一个模拟实现，因为运行时环境下无法直接创建预制体文件
-            // 真正的预制体创建需要Editor API支持
+            // Note: This is a simulation implementation because the runtime environment
+            // cannot directly create prefab files in 2.x
+            // Real prefab creation requires Editor API support
             return {
                 success: true,
                 data: {
@@ -359,74 +373,48 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     setComponentProperty(nodeUuid: string, componentType: string, property: string, value: any) {
         try {
-            const { director, js } = require('cc');
-            const scene = director.getScene();
+            const scene = cc.director.getScene();
             if (!scene) {
                 return { success: false, error: 'No active scene' };
             }
+
             const node = scene.getChildByUuid(nodeUuid);
             if (!node) {
                 return { success: false, error: `Node with UUID ${nodeUuid} not found` };
             }
-            const ComponentClass = js.getClassByName(componentType);
+
+            const ComponentClass = cc.js.getClassByName(componentType);
             if (!ComponentClass) {
                 return { success: false, error: `Component type ${componentType} not found` };
             }
-            const component = node.getComponent(ComponentClass);
+
+            const component = node.getComponent(ComponentClass as new () => cc.Component);
             if (!component) {
                 return { success: false, error: `Component ${componentType} not found on node` };
             }
-            // 针对常见属性做特殊处理
+
+            // Handle common properties with special treatment
             if (property === 'spriteFrame' && componentType === 'cc.Sprite') {
-                // 支持 value 为 uuid 或资源路径
+                // Support value as uuid or resource path
                 if (typeof value === 'string') {
-                    // 先尝试按 uuid 查找
-                    const assetManager = require('cc').assetManager;
-                    assetManager.resources.load(value, require('cc').SpriteFrame, (err: any, spriteFrame: any) => {
+                    // Try to load as resource
+                    cc.loader.loadRes(value, cc.SpriteFrame, (err: any, spriteFrame: any) => {
                         if (!err && spriteFrame) {
-                            component.spriteFrame = spriteFrame;
+                            (component as any).spriteFrame = spriteFrame;
                         } else {
-                            // 尝试通过 uuid 加载
-                            assetManager.loadAny({ uuid: value }, (err2: any, asset: any) => {
-                                if (!err2 && asset) {
-                                    component.spriteFrame = asset;
-                                } else {
-                                    // 直接赋值（兼容已传入资源对象）
-                                    component.spriteFrame = value;
-                                }
-                            });
+                            // Try direct assignment (compatible with already passed resource object)
+                            (component as any).spriteFrame = value;
                         }
                     });
                 } else {
-                    component.spriteFrame = value;
-                }
-            } else if (property === 'material' && (componentType === 'cc.Sprite' || componentType === 'cc.MeshRenderer')) {
-                // 支持 value 为 uuid 或资源路径
-                if (typeof value === 'string') {
-                    const assetManager = require('cc').assetManager;
-                    assetManager.resources.load(value, require('cc').Material, (err: any, material: any) => {
-                        if (!err && material) {
-                            component.material = material;
-                        } else {
-                            assetManager.loadAny({ uuid: value }, (err2: any, asset: any) => {
-                                if (!err2 && asset) {
-                                    component.material = asset;
-                                } else {
-                                    component.material = value;
-                                }
-                            });
-                        }
-                    });
-                } else {
-                    component.material = value;
+                    (component as any).spriteFrame = value;
                 }
             } else if (property === 'string' && (componentType === 'cc.Label' || componentType === 'cc.RichText')) {
-                component.string = value;
+                (component as any).string = value;
             } else {
-                component[property] = value;
+                (component as any)[property] = value;
             }
-            // 可选：刷新 Inspector
-            // Editor.Message.send('scene', 'snapshot');
+
             return { success: true, message: `Component property '${property}' updated successfully` };
         } catch (error: any) {
             return { success: false, error: error.message };

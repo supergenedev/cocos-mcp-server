@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor, ProjectInfo, AssetInfo } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -481,7 +483,7 @@ export class ProjectTools implements ToolExecutor {
                 resolve({
                     success: true,
                     message: `Build panel opened for ${args.platform}. Please configure and start build manually.`,
-                    data: { 
+                    data: {
                         platform: args.platform,
                         instruction: "Use the build panel to configure and start the build process"
                     }
@@ -546,7 +548,7 @@ export class ProjectTools implements ToolExecutor {
         return new Promise((resolve) => {
             // 使用正确的 asset-db API 刷新资源
             const targetPath = folder || 'db://assets';
-            
+
             Editor.Message.request('asset-db', 'refresh-asset', targetPath).then(() => {
                 resolve({
                     success: true,
@@ -617,7 +619,7 @@ export class ProjectTools implements ToolExecutor {
     private async getAssets(type: string = 'all', folder: string = 'db://assets'): Promise<ToolResponse> {
         return new Promise((resolve) => {
             let pattern = `${folder}/**/*`;
-            
+
             // 添加类型过滤
             if (type !== 'all') {
                 const typeExtensions: Record<string, string> = {
@@ -630,7 +632,7 @@ export class ProjectTools implements ToolExecutor {
                     'audio': '.{mp3,ogg,wav,m4a}',
                     'animation': '.{anim,clip}'
                 };
-                
+
                 const extension = typeExtensions[type];
                 if (extension) {
                     pattern = `${folder}/**/*${extension}`;
@@ -647,9 +649,9 @@ export class ProjectTools implements ToolExecutor {
                     size: asset.size || 0,
                     isDirectory: asset.isDirectory || false
                 }));
-                
-                resolve({ 
-                    success: true, 
+
+                resolve({
+                    success: true,
                     data: {
                         type: type,
                         folder: folder,
@@ -959,7 +961,7 @@ export class ProjectTools implements ToolExecutor {
 
     private async findAssetByName(args: any): Promise<ToolResponse> {
         const { name, exactMatch = false, assetType = 'all', folder = 'db://assets', maxResults = 20 } = args;
-        
+
         return new Promise(async (resolve) => {
             try {
                 // Get all assets in the specified folder
@@ -971,21 +973,21 @@ export class ProjectTools implements ToolExecutor {
                     });
                     return;
                 }
-                
+
                 const allAssets = allAssetsResponse.data.assets as any[];
                 let matchedAssets: any[] = [];
-                
+
                 // Search for matching assets
                 for (const asset of allAssets) {
                     const assetName = asset.name;
                     let matches = false;
-                    
+
                     if (exactMatch) {
                         matches = assetName === name;
                     } else {
                         matches = assetName.toLowerCase().includes(name.toLowerCase());
                     }
-                    
+
                     if (matches) {
                         // Get detailed asset info if needed
                         try {
@@ -1001,13 +1003,13 @@ export class ProjectTools implements ToolExecutor {
                         } catch {
                             matchedAssets.push(asset);
                         }
-                        
+
                         if (matchedAssets.length >= maxResults) {
                             break;
                         }
                     }
                 }
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -1021,7 +1023,7 @@ export class ProjectTools implements ToolExecutor {
                         message: `Found ${matchedAssets.length} assets matching '${name}'`
                     }
                 });
-                
+
             } catch (error: any) {
                 resolve({
                     success: false,
@@ -1030,7 +1032,7 @@ export class ProjectTools implements ToolExecutor {
             }
         });
     }
-    
+
     private async getAssetDetails(assetPath: string, includeSubAssets: boolean = true): Promise<ToolResponse> {
         return new Promise(async (resolve) => {
             try {
@@ -1040,13 +1042,13 @@ export class ProjectTools implements ToolExecutor {
                     resolve(assetInfoResponse);
                     return;
                 }
-                
+
                 const assetInfo = assetInfoResponse.data;
                 const detailedInfo: any = {
                     ...assetInfo,
                     subAssets: []
                 };
-                
+
                 if (includeSubAssets && assetInfo) {
                     // For image assets, try to get spriteFrame and texture sub-assets
                     if (assetInfo.type === 'cc.ImageAsset' || assetPath.match(/\.(png|jpg|jpeg|gif|tga|bmp|psd)$/i)) {
@@ -1057,7 +1059,7 @@ export class ProjectTools implements ToolExecutor {
                             { type: 'texture', uuid: `${baseUuid}@6c48a`, suffix: '@6c48a' },
                             { type: 'texture2D', uuid: `${baseUuid}@6c48a`, suffix: '@6c48a' }
                         ];
-                        
+
                         for (const subAsset of possibleSubAssets) {
                             try {
                                 // Try to get URL for the sub-asset to verify it exists
@@ -1076,7 +1078,7 @@ export class ProjectTools implements ToolExecutor {
                         }
                     }
                 }
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -1086,7 +1088,7 @@ export class ProjectTools implements ToolExecutor {
                         message: `Asset details retrieved. Found ${detailedInfo.subAssets.length} sub-assets.`
                     }
                 });
-                
+
             } catch (error: any) {
                 resolve({
                     success: false,

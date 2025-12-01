@@ -1,6 +1,166 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
 
+// Constants
+const DEFAULT_ASSET_DIRECTORY = 'db://assets';
+const MAX_URL_GENERATION_ATTEMPTS = 100;
+const ASSET_EXPLORE_MESSAGE = 'Asset location revealed in file system. Please open manually with your preferred program.';
+
+// Type Definitions
+interface AssetInfo {
+    name: string;
+    url: string;
+    uuid: string;
+    type: string;
+    size?: number;
+    isDirectory?: boolean;
+}
+
+interface BatchImportResult {
+    source: string;
+    target?: string;
+    success: boolean;
+    error?: string;
+    uuid?: string;
+}
+
+interface BatchDeleteResult {
+    url: string;
+    success: boolean;
+    error?: string;
+}
+
+interface BatchImportArgs {
+    sourceDirectory: string;
+    targetDirectory: string;
+    fileFilter?: string[];
+    recursive?: boolean;
+    overwrite?: boolean;
+}
+
+interface NormalizedAsset {
+    url: string;
+    uuid: string;
+}
+
 export class AssetAdvancedTools implements ToolExecutor {
+    // Utility Functions
+
+    /**
+     * Check if the given string is a URL (starts with 'db://')
+     */
+    private isUrl(urlOrUUID: string): boolean {
+        return urlOrUUID.startsWith('db://');
+    }
+
+    /**
+     * Convert URL to UUID
+     */
+    private convertUrlToUuid(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            Editor.assetdb.queryUuidByUrl(url, (err: Error | null, uuid: string) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(uuid);
+                }
+            });
+        });
+    }
+
+    /**
+     * Convert UUID to URL
+     */
+    private convertUuidToUrl(uuid: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            Editor.assetdb.queryUrlByUuid(uuid, (err: Error | null, url: string) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(url);
+                }
+            });
+        });
+    }
+
+    /**
+     * Normalize URL or UUID to get both URL and UUID
+     */
+    private async normalizeUrlOrUuid(urlOrUUID: string): Promise<NormalizedAsset> {
+        if (this.isUrl(urlOrUUID)) {
+            const uuid = await this.convertUrlToUuid(urlOrUUID);
+            return { url: urlOrUUID, uuid };
+        } else {
+            const url = await this.convertUuidToUrl(urlOrUUID);
+            return { url, uuid: urlOrUUID };
+        }
+    }
+
+    /**
+     * Promisify assetdb callback functions
+     */
+    private promisifyAssetDb<T>(
+        callbackFn: (cb: (err: Error | null, result: T) => void) => void
+    ): Promise<T> {
+        return new Promise((resolve, reject) => {
+            callbackFn((err: Error | null, result: T) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(result);
+                }
+            });
+        });
+    }
+
+    /**
+     * Process items sequentially
+     */
+    private async processSequentially<T, R>(
+        items: T[],
+        processor: (item: T, index: number) => Promise<R>
+    ): Promise<R[]> {
+        const results: R[] = [];
+        for (let i = 0; i < items.length; i++) {
+            const result = await processor(items[i], i);
+            results.push(result);
+        }
+        return results;
+    }
+
+    /**
+     * Create error response
+     */
+    private createErrorResponse(error: Error | string): ToolResponse {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : error
+        };
+    }
+
+    /**
+     * Create success response
+     */
+    private createSuccessResponse(data?: any, message?: string): ToolResponse {
+        const response: ToolResponse = {
+            success: true
+        };
+        if (data !== undefined) {
+            response.data = data;
+        }
+        if (message) {
+            if (response.data) {
+                response.data.message = message;
+            } else {
+                response.message = message;
+            }
+        }
+        return response;
+    }
+
+    // Public Methods
+
     getTools(): ToolDefinition[] {
         return [
             {
@@ -245,133 +405,138 @@ export class AssetAdvancedTools implements ToolExecutor {
     }
 
     private async saveAssetMeta(urlOrUUID: string, content: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'save-asset-meta', urlOrUUID, content).then((result: any) => {
-                resolve({
-                    success: true,
-                    data: {
-                        uuid: result?.uuid,
-                        url: result?.url,
-                        message: 'Asset meta saved successfully'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+        try {
+            const normalized = await this.normalizeUrlOrUuid(urlOrUUID);
+
+            await this.promisifyAssetDb<void>((cb) => {
+                Editor.assetdb.saveMeta(normalized.uuid, content, cb);
             });
-        });
+
+            return this.createSuccessResponse({
+                uuid: normalized.uuid,
+                url: normalized.url
+            }, 'Asset meta saved successfully');
+        } catch (err: any) {
+            return this.createErrorResponse(err);
+        }
     }
 
     private async generateAvailableUrl(url: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'generate-available-url', url).then((availableUrl: string) => {
-                resolve({
-                    success: true,
-                    data: {
+        try {
+            for (let attempt = 0; attempt <= MAX_URL_GENERATION_ATTEMPTS; attempt++) {
+                const testUrl = attempt === 0 ? url : this.getNextUrl(url, attempt);
+
+                try {
+                    await this.convertUrlToUuid(testUrl);
+                    // URL exists, continue to next attempt
+                } catch (err) {
+                    // URL doesn't exist, so it's available
+                    return this.createSuccessResponse({
                         originalUrl: url,
-                        availableUrl: availableUrl,
-                        message: availableUrl === url ? 
-                            'URL is available' : 
-                            'Generated new available URL'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
-        });
+                        availableUrl: testUrl
+                    }, testUrl === url ? 'URL is available' : 'Generated new available URL');
+                }
+            }
+
+            return this.createErrorResponse(`Could not generate available URL after ${MAX_URL_GENERATION_ATTEMPTS} attempts`);
+        } catch (err: any) {
+            return this.createErrorResponse(err);
+        }
+    }
+
+    private getNextUrl(url: string, attempt: number): string {
+        // Split URL into base and extension
+        const lastDot = url.lastIndexOf('.');
+        const lastSlash = url.lastIndexOf('/');
+
+        if (lastDot > lastSlash) {
+            // Has extension
+            const base = url.substring(0, lastDot);
+            const ext = url.substring(lastDot);
+            return `${base}-${attempt}${ext}`;
+        } else {
+            // No extension
+            return `${url}-${attempt}`;
+        }
     }
 
     private async queryAssetDbReady(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'query-ready').then((ready: boolean) => {
-                resolve({
-                    success: true,
-                    data: {
-                        ready: ready,
-                        message: ready ? 'Asset database is ready' : 'Asset database is not ready'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+        try {
+            await this.promisifyAssetDb<any[]>((cb) => {
+                Editor.assetdb.queryAssets(DEFAULT_ASSET_DIRECTORY, '', cb);
             });
-        });
+
+            return this.createSuccessResponse({
+                ready: true
+            }, 'Asset database is ready');
+        } catch (err: any) {
+            return this.createSuccessResponse({
+                ready: false
+            }, 'Asset database is not ready');
+        }
     }
 
     private async openAssetExternal(urlOrUUID: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'open-asset', urlOrUUID).then(() => {
-                resolve({
-                    success: true,
-                    message: 'Asset opened with external program'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
-        });
+        try {
+            const normalized = await this.normalizeUrlOrUuid(urlOrUUID);
+            Editor.assetdb.explore(normalized.url);
+
+            return this.createSuccessResponse(undefined, ASSET_EXPLORE_MESSAGE);
+        } catch (err: any) {
+            return this.createErrorResponse(err);
+        }
     }
 
-    private async batchImportAssets(args: any): Promise<ToolResponse> {
-        return new Promise(async (resolve) => {
-            try {
-                const fs = require('fs');
-                const path = require('path');
-                
-                if (!fs.existsSync(args.sourceDirectory)) {
-                    resolve({ success: false, error: 'Source directory does not exist' });
-                    return;
-                }
+    private async batchImportAssets(args: BatchImportArgs): Promise<ToolResponse> {
+        try {
+            const fs = require('fs');
+            const path = require('path');
 
-                const files = this.getFilesFromDirectory(
-                    args.sourceDirectory, 
-                    args.fileFilter || [], 
-                    args.recursive || false
-                );
+            if (!fs.existsSync(args.sourceDirectory)) {
+                return this.createErrorResponse('Source directory does not exist');
+            }
 
-                const importResults: any[] = [];
-                let successCount = 0;
-                let errorCount = 0;
+            const files = this.getFilesFromDirectory(
+                args.sourceDirectory,
+                args.fileFilter || [],
+                args.recursive || false
+            );
 
-                for (const filePath of files) {
+            const importResults: BatchImportResult[] = await this.processSequentially(
+                files,
+                async (filePath: string, index: number) => {
                     try {
-                        const fileName = path.basename(filePath);
-                        const targetPath = `${args.targetDirectory}/${fileName}`;
-                        
-                        const result = await Editor.Message.request('asset-db', 'import-asset', 
-                            filePath, targetPath, { 
-                                overwrite: args.overwrite || false,
-                                rename: !(args.overwrite || false)
-                            });
-                        
-                        importResults.push({
-                            source: filePath,
-                            target: targetPath,
-                            success: true,
-                            uuid: result?.uuid
+                        await this.promisifyAssetDb<void>((cb) => {
+                            Editor.assetdb.import([filePath], args.targetDirectory, true, cb);
                         });
-                        successCount++;
+
+                        return {
+                            source: filePath,
+                            target: `${args.targetDirectory}/${path.basename(filePath)}`,
+                            success: true
+                        };
                     } catch (err: any) {
-                        importResults.push({
+                        return {
                             source: filePath,
                             success: false,
                             error: err.message
-                        });
-                        errorCount++;
+                        };
                     }
                 }
+            );
 
-                resolve({
-                    success: true,
-                    data: {
-                        totalFiles: files.length,
-                        successCount: successCount,
-                        errorCount: errorCount,
-                        results: importResults,
-                        message: `Batch import completed: ${successCount} success, ${errorCount} errors`
-                    }
-                });
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
-            }
-        });
+            const successCount = importResults.filter(r => r.success).length;
+            const errorCount = importResults.filter(r => !r.success).length;
+
+            return this.createSuccessResponse({
+                totalFiles: files.length,
+                successCount,
+                errorCount,
+                results: importResults
+            }, `Batch import completed: ${successCount} success, ${errorCount} errors`);
+        } catch (err: any) {
+            return this.createErrorResponse(err);
+        }
     }
 
     private getFilesFromDirectory(dirPath: string, fileFilter: string[], recursive: boolean): string[] {
@@ -380,11 +545,11 @@ export class AssetAdvancedTools implements ToolExecutor {
         const files: string[] = [];
 
         const items = fs.readdirSync(dirPath);
-        
+
         for (const item of items) {
             const fullPath = path.join(dirPath, item);
             const stat = fs.statSync(fullPath);
-            
+
             if (stat.isFile()) {
                 if (fileFilter.length === 0 || fileFilter.some(ext => item.toLowerCase().endsWith(ext.toLowerCase()))) {
                     files.push(fullPath);
@@ -393,196 +558,192 @@ export class AssetAdvancedTools implements ToolExecutor {
                 files.push(...this.getFilesFromDirectory(fullPath, fileFilter, recursive));
             }
         }
-        
+
         return files;
     }
 
     private async batchDeleteAssets(urls: string[]): Promise<ToolResponse> {
-        return new Promise(async (resolve) => {
-            try {
-                const deleteResults: any[] = [];
-                let successCount = 0;
-                let errorCount = 0;
+        try {
+            // Note: Editor.assetdb.delete() does not provide a callback
+            // We assume it succeeds and report all as successful
+            Editor.assetdb.delete(urls);
 
-                for (const url of urls) {
-                    try {
-                        await Editor.Message.request('asset-db', 'delete-asset', url);
-                        deleteResults.push({
-                            url: url,
-                            success: true
-                        });
-                        successCount++;
-                    } catch (err: any) {
-                        deleteResults.push({
-                            url: url,
-                            success: false,
-                            error: err.message
-                        });
-                        errorCount++;
-                    }
-                }
+            const deleteResults: BatchDeleteResult[] = urls.map(url => ({
+                url,
+                success: true
+            }));
 
-                resolve({
-                    success: true,
-                    data: {
-                        totalAssets: urls.length,
-                        successCount: successCount,
-                        errorCount: errorCount,
-                        results: deleteResults,
-                        message: `Batch delete completed: ${successCount} success, ${errorCount} errors`
-                    }
-                });
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
-            }
-        });
+            return this.createSuccessResponse({
+                totalAssets: urls.length,
+                successCount: urls.length,
+                errorCount: 0,
+                results: deleteResults
+            }, `Batch delete initiated for ${urls.length} assets. Note: Individual deletion results are not available in 2.x API.`);
+        } catch (err: any) {
+            return this.createErrorResponse(err);
+        }
     }
 
-    private async validateAssetReferences(directory: string = 'db://assets'): Promise<ToolResponse> {
-        return new Promise(async (resolve) => {
-            try {
-                // Get all assets in directory
-                const assets = await Editor.Message.request('asset-db', 'query-assets', { pattern: `${directory}/**/*` });
-                
-                const brokenReferences: any[] = [];
-                const validReferences: any[] = [];
+    private async validateAssetReferences(directory: string = DEFAULT_ASSET_DIRECTORY): Promise<ToolResponse> {
+        try {
+            const pattern = `${directory}/**/*`;
+            const assets: AssetInfo[] = await this.promisifyAssetDb<AssetInfo[]>((cb) => {
+                Editor.assetdb.queryAssets(pattern, '', cb);
+            });
 
-                for (const asset of assets) {
+            if (assets.length === 0) {
+                return this.createSuccessResponse({
+                    directory,
+                    totalAssets: 0,
+                    validReferences: 0,
+                    brokenReferences: 0,
+                    brokenAssets: []
+                }, 'Validation completed: 0 assets found');
+            }
+
+            const validationResults = await this.processSequentially(
+                assets,
+                async (asset: AssetInfo) => {
                     try {
-                        const assetInfo = await Editor.Message.request('asset-db', 'query-asset-info', asset.url);
-                        if (assetInfo) {
-                            validReferences.push({
-                                url: asset.url,
-                                uuid: asset.uuid,
-                                name: asset.name
-                            });
-                        }
-                    } catch (err) {
-                        brokenReferences.push({
+                        await this.promisifyAssetDb<any>((cb) => {
+                            Editor.assetdb.queryInfoByUuid(asset.uuid, cb);
+                        });
+
+                        return {
                             url: asset.url,
                             uuid: asset.uuid,
                             name: asset.name,
-                            error: (err as Error).message
-                        });
+                            valid: true
+                        };
+                    } catch (err: any) {
+                        return {
+                            url: asset.url,
+                            uuid: asset.uuid,
+                            name: asset.name,
+                            valid: false,
+                            error: err.message
+                        };
                     }
                 }
+            );
 
-                resolve({
-                    success: true,
-                    data: {
-                        directory: directory,
-                        totalAssets: assets.length,
-                        validReferences: validReferences.length,
-                        brokenReferences: brokenReferences.length,
-                        brokenAssets: brokenReferences,
-                        message: `Validation completed: ${brokenReferences.length} broken references found`
-                    }
-                });
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
-            }
-        });
+            const validReferences = validationResults.filter(r => r.valid);
+            const brokenReferences = validationResults.filter(r => !r.valid);
+
+            return this.createSuccessResponse({
+                directory,
+                totalAssets: assets.length,
+                validReferences: validReferences.length,
+                brokenReferences: brokenReferences.length,
+                brokenAssets: brokenReferences
+            }, `Validation completed: ${brokenReferences.length} broken references found`);
+        } catch (err: any) {
+            return this.createErrorResponse(err);
+        }
     }
 
     private async getAssetDependencies(urlOrUUID: string, direction: string = 'dependencies'): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            // Note: This would require scene analysis or additional APIs not available in current documentation
-            resolve({
-                success: false,
-                error: 'Asset dependency analysis requires additional APIs not available in current Cocos Creator MCP implementation. Consider using the Editor UI for dependency analysis.'
-            });
-        });
+        return this.createErrorResponse(
+            'Asset dependency analysis requires additional APIs not available in current Cocos Creator MCP implementation. Consider using the Editor UI for dependency analysis.'
+        );
     }
 
-    private async getUnusedAssets(directory: string = 'db://assets', excludeDirectories: string[] = []): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            // Note: This would require comprehensive project analysis
-            resolve({
-                success: false,
-                error: 'Unused asset detection requires comprehensive project analysis not available in current Cocos Creator MCP implementation. Consider using the Editor UI or third-party tools for unused asset detection.'
-            });
-        });
+    private async getUnusedAssets(directory: string = DEFAULT_ASSET_DIRECTORY, excludeDirectories: string[] = []): Promise<ToolResponse> {
+        return this.createErrorResponse(
+            'Unused asset detection requires comprehensive project analysis not available in current Cocos Creator MCP implementation. Consider using the Editor UI or third-party tools for unused asset detection.'
+        );
     }
 
-    private async compressTextures(directory: string = 'db://assets', format: string = 'auto', quality: number = 0.8): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            // Note: Texture compression would require image processing APIs
-            resolve({
-                success: false,
-                error: 'Texture compression requires image processing capabilities not available in current Cocos Creator MCP implementation. Use the Editor\'s built-in texture compression settings or external tools.'
-            });
-        });
+    private async compressTextures(directory: string = DEFAULT_ASSET_DIRECTORY, format: string = 'auto', quality: number = 0.8): Promise<ToolResponse> {
+        return this.createErrorResponse(
+            'Texture compression requires image processing capabilities not available in current Cocos Creator MCP implementation. Use the Editor\'s built-in texture compression settings or external tools.'
+        );
     }
 
-    private async exportAssetManifest(directory: string = 'db://assets', format: string = 'json', includeMetadata: boolean = true): Promise<ToolResponse> {
-        return new Promise(async (resolve) => {
-            try {
-                const assets = await Editor.Message.request('asset-db', 'query-assets', { pattern: `${directory}/**/*` });
-                
-                const manifest: any[] = [];
+    private async exportAssetManifest(directory: string = DEFAULT_ASSET_DIRECTORY, format: string = 'json', includeMetadata: boolean = true): Promise<ToolResponse> {
+        try {
+            const pattern = `${directory}/**/*`;
+            const assets: AssetInfo[] = await this.promisifyAssetDb<AssetInfo[]>((cb) => {
+                Editor.assetdb.queryAssets(pattern, '', cb);
+            });
 
-                for (const asset of assets) {
-                    const manifestEntry: any = {
+            if (assets.length === 0) {
+                const emptyManifest = format === 'json' ? '[]' : '';
+                return this.createSuccessResponse({
+                    directory,
+                    format,
+                    assetCount: 0,
+                    includeMetadata,
+                    manifest: emptyManifest
+                }, 'Asset manifest exported with 0 assets');
+            }
+
+            const manifestEntries = await this.processSequentially(
+                assets,
+                async (asset: AssetInfo) => {
+                    const entry: any = {
                         name: asset.name,
                         url: asset.url,
                         uuid: asset.uuid,
                         type: asset.type,
-                        size: (asset as any).size || 0,
+                        size: asset.size || 0,
                         isDirectory: asset.isDirectory || false
                     };
 
                     if (includeMetadata) {
                         try {
-                            const assetInfo = await Editor.Message.request('asset-db', 'query-asset-info', asset.url);
-                            if (assetInfo && assetInfo.meta) {
-                                manifestEntry.meta = assetInfo.meta;
+                            const metaInfo = await this.promisifyAssetDb<any>((cb) => {
+                                Editor.assetdb.queryMetaInfoByUuid(asset.uuid, cb);
+                            });
+                            if (metaInfo && metaInfo.json) {
+                                entry.meta = metaInfo.json;
                             }
                         } catch (err) {
                             // Skip metadata if not available
                         }
                     }
 
-                    manifest.push(manifestEntry);
+                    return entry;
                 }
+            );
 
-                let exportData: string;
-                switch (format) {
-                    case 'json':
-                        exportData = JSON.stringify(manifest, null, 2);
-                        break;
-                    case 'csv':
-                        exportData = this.convertToCSV(manifest);
-                        break;
-                    case 'xml':
-                        exportData = this.convertToXML(manifest);
-                        break;
-                    default:
-                        exportData = JSON.stringify(manifest, null, 2);
-                }
+            return this.finalizeManifestExport(directory, format, includeMetadata, manifestEntries);
+        } catch (err: any) {
+            return this.createErrorResponse(err);
+        }
+    }
 
-                resolve({
-                    success: true,
-                    data: {
-                        directory: directory,
-                        format: format,
-                        assetCount: manifest.length,
-                        includeMetadata: includeMetadata,
-                        manifest: exportData,
-                        message: `Asset manifest exported with ${manifest.length} assets`
-                    }
-                });
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
-            }
-        });
+    private finalizeManifestExport(directory: string, format: string, includeMetadata: boolean, manifest: any[]): ToolResponse {
+        let exportData: string;
+        switch (format) {
+            case 'json':
+                exportData = JSON.stringify(manifest, null, 2);
+                break;
+            case 'csv':
+                exportData = this.convertToCSV(manifest);
+                break;
+            case 'xml':
+                exportData = this.convertToXML(manifest);
+                break;
+            default:
+                exportData = JSON.stringify(manifest, null, 2);
+        }
+
+        return this.createSuccessResponse({
+            directory,
+            format,
+            assetCount: manifest.length,
+            includeMetadata,
+            manifest: exportData
+        }, `Asset manifest exported with ${manifest.length} assets`);
     }
 
     private convertToCSV(data: any[]): string {
         if (data.length === 0) return '';
-        
+
         const headers = Object.keys(data[0]);
         const csvRows = [headers.join(',')];
-        
+
         for (const row of data) {
             const values = headers.map(header => {
                 const value = row[header];
@@ -590,24 +751,24 @@ export class AssetAdvancedTools implements ToolExecutor {
             });
             csvRows.push(values.join(','));
         }
-        
+
         return csvRows.join('\n');
     }
 
     private convertToXML(data: any[]): string {
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<assets>\n';
-        
+
         for (const item of data) {
             xml += '  <asset>\n';
             for (const [key, value] of Object.entries(item)) {
-                const xmlValue = typeof value === 'object' ? 
-                    JSON.stringify(value) : 
+                const xmlValue = typeof value === 'object' ?
+                    JSON.stringify(value) :
                     String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 xml += `    <${key}>${xmlValue}</${key}>\n`;
             }
             xml += '  </asset>\n';
         }
-        
+
         xml += '</assets>';
         return xml;
     }

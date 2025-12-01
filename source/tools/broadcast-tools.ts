@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
 
 export class BroadcastTools implements ToolExecutor {

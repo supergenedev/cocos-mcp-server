@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
 
 export class ReferenceImageTools implements ToolExecutor {
@@ -218,8 +220,8 @@ export class ReferenceImageTools implements ToolExecutor {
     private async removeReferenceImage(paths?: string[]): Promise<ToolResponse> {
         return new Promise((resolve) => {
             Editor.Message.request('reference-image', 'remove-image', paths).then(() => {
-                const message = paths && paths.length > 0 ? 
-                    `Removed ${paths.length} reference image(s)` : 
+                const message = paths && paths.length > 0 ?
+                    `Removed ${paths.length} reference image(s)` :
                     'Removed current reference image';
                 resolve({
                     success: true,
@@ -310,7 +312,7 @@ export class ReferenceImageTools implements ToolExecutor {
             try {
                 await Editor.Message.request('reference-image', 'set-image-data', 'x', x);
                 await Editor.Message.request('reference-image', 'set-image-data', 'y', y);
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -330,7 +332,7 @@ export class ReferenceImageTools implements ToolExecutor {
             try {
                 await Editor.Message.request('reference-image', 'set-image-data', 'sx', sx);
                 await Editor.Message.request('reference-image', 'set-image-data', 'sy', sy);
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -366,7 +368,7 @@ export class ReferenceImageTools implements ToolExecutor {
             try {
                 const config = await Editor.Message.request('reference-image', 'query-config');
                 const current = await Editor.Message.request('reference-image', 'query-current');
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -386,7 +388,7 @@ export class ReferenceImageTools implements ToolExecutor {
             try {
                 // Remove all reference images by calling remove-image without paths
                 await Editor.Message.request('reference-image', 'remove-image');
-                
+
                 resolve({
                     success: true,
                     message: 'All reference images cleared'

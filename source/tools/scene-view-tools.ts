@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
 
 export class SceneViewTools implements ToolExecutor {
@@ -493,8 +495,8 @@ export class SceneViewTools implements ToolExecutor {
     private async focusCameraOnNodes(uuids: string[] | null): Promise<ToolResponse> {
         return new Promise((resolve) => {
             Editor.Message.request('scene', 'focus-camera', uuids || []).then(() => {
-                const message = uuids === null ? 
-                    'Camera focused on all nodes' : 
+                const message = uuids === null ?
+                    'Camera focused on all nodes' :
                     `Camera focused on ${uuids.length} node(s)`;
                 resolve({
                     success: true,

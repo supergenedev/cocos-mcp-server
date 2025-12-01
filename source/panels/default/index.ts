@@ -1,10 +1,8 @@
-/* eslint-disable vue/one-component-per-file */
+/// <reference path="../../types/editor-2x.d.ts" />
 
 import { readFileSync } from 'fs-extra';
 import { join } from 'path';
-import { createApp, App, defineComponent, ref, computed, onMounted, watch, nextTick } from 'vue';
-
-const panelDataMap = new WeakMap<any, App>();
+import * as Vue from 'vue';
 
 // 定义工具配置接口
 interface ToolConfig {
@@ -32,13 +30,13 @@ interface ServerSettings {
     maxConnections: number;
 }
 
-module.exports = Editor.Panel.define({
+module.exports = Editor.Panel.extend({
     listeners: {
-        show() { 
-            console.log('[MCP Panel] Panel shown'); 
+        show() {
+            console.log('[MCP Panel] Panel shown');
         },
-        hide() { 
-            console.log('[MCP Panel] Panel hidden'); 
+        hide() {
+            console.log('[MCP Panel] Panel hidden');
         },
     },
     template: readFileSync(join(__dirname, '../../../static/template/default/index.html'), 'utf-8'),
@@ -49,338 +47,248 @@ module.exports = Editor.Panel.define({
     },
     ready() {
         if (this.$.app) {
-            const app = createApp({});
-            app.config.compilerOptions.isCustomElement = (tag) => tag.startsWith('ui-');
-            
-            // 创建主应用组件
-            app.component('McpServerApp', defineComponent({
-                setup() {
-                    // 响应式数据
-                    const activeTab = ref('server');
-                    const serverRunning = ref(false);
-                    const serverStatus = ref('已停止');
-                    const connectedClients = ref(0);
-                    const httpUrl = ref('');
-                    const isProcessing = ref(false);
-                    
-                    const settings = ref<ServerSettings>({
+            // Vue 2 application using Options API
+            const vm = new Vue({
+                el: this.$.app,
+                data: {
+                    activeTab: 'server',
+                    serverRunning: false,
+                    serverStatus: '已停止',
+                    connectedClients: 0,
+                    httpUrl: '',
+                    isProcessing: false,
+                    settings: {
                         port: 3000,
                         autoStart: false,
                         debugLog: false,
                         maxConnections: 10
-                    });
-                    
-                    const availableTools = ref<ToolConfig[]>([]);
-                    const toolCategories = ref<string[]>([]);
-                    
+                    },
+                    availableTools: [] as ToolConfig[],
+                    toolCategories: [] as string[],
+                    settingsChanged: false,
+                    selectedCategory: '',
+                    searchQuery: ''
+                },
+                computed: {
+                    statusClass(): any {
+                        return {
+                            'status-running': this.serverRunning,
+                            'status-stopped': !this.serverRunning
+                        };
+                    },
+                    totalTools(): number {
+                        return this.availableTools.length;
+                    },
+                    enabledTools(): number {
+                        return this.availableTools.filter((t: ToolConfig) => t.enabled).length;
+                    },
+                    disabledTools(): number {
+                        return this.totalTools - this.enabledTools;
+                    },
+                    filteredTools(): ToolConfig[] {
+                        let tools = this.availableTools;
 
-                    
-                    // 计算属性
-                    const statusClass = computed(() => ({
-                        'status-running': serverRunning.value,
-                        'status-stopped': !serverRunning.value
-                    }));
-                    
-                    const totalTools = computed(() => availableTools.value.length);
-                    const enabledTools = computed(() => availableTools.value.filter(t => t.enabled).length);
-                    const disabledTools = computed(() => totalTools.value - enabledTools.value);
-                    
-
-                    
-                    const settingsChanged = ref(false);
-                    
-                    // 方法
-                    const switchTab = (tabName: string) => {
-                        activeTab.value = tabName;
-                        if (tabName === 'tools') {
-                            loadToolManagerState();
+                        if (this.selectedCategory) {
+                            tools = tools.filter((t: ToolConfig) => t.category === this.selectedCategory);
                         }
-                    };
-                    
-                    const toggleServer = async () => {
+
+                        if (this.searchQuery) {
+                            const query = this.searchQuery.toLowerCase();
+                            tools = tools.filter((t: ToolConfig) =>
+                                t.name.toLowerCase().includes(query) ||
+                                t.description.toLowerCase().includes(query)
+                            );
+                        }
+
+                        return tools;
+                    },
+                    groupedTools(): any {
+                        const groups: any = {};
+                        this.filteredTools.forEach((tool: ToolConfig) => {
+                            if (!groups[tool.category]) {
+                                groups[tool.category] = [];
+                            }
+                            groups[tool.category].push(tool);
+                        });
+                        return groups;
+                    }
+                },
+                methods: {
+                    switchTab(tabName: string) {
+                        this.activeTab = tabName;
+                        if (tabName === 'tools') {
+                            this.loadToolManagerState();
+                        }
+                    },
+
+                    async toggleServer() {
                         try {
-                            if (serverRunning.value) {
-                                await Editor.Message.request('cocos-mcp-server', 'stop-server');
+                            if (this.serverRunning) {
+                                await this.sendIpcRequest('cocos-mcp-server', 'stop-server');
                             } else {
-                                // 启动服务器时使用当前面板设置
                                 const currentSettings = {
-                                    port: settings.value.port,
-                                    autoStart: settings.value.autoStart,
-                                    enableDebugLog: settings.value.debugLog,
-                                    maxConnections: settings.value.maxConnections
+                                    port: this.settings.port,
+                                    autoStart: this.settings.autoStart,
+                                    enableDebugLog: this.settings.debugLog,
+                                    maxConnections: this.settings.maxConnections
                                 };
-                                await Editor.Message.request('cocos-mcp-server', 'update-settings', currentSettings);
-                                await Editor.Message.request('cocos-mcp-server', 'start-server');
+                                await this.sendIpcRequest('cocos-mcp-server', 'update-settings', currentSettings);
+                                await this.sendIpcRequest('cocos-mcp-server', 'start-server');
                             }
                             console.log('[Vue App] Server toggled');
                         } catch (error) {
                             console.error('[Vue App] Failed to toggle server:', error);
                         }
-                    };
-                    
-                    const saveSettings = async () => {
+                    },
+
+                    async saveSettings() {
                         try {
-                            // 创建一个简单的对象，避免克隆错误
                             const settingsData = {
-                                port: settings.value.port,
-                                autoStart: settings.value.autoStart,
-                                debugLog: settings.value.debugLog,
-                                maxConnections: settings.value.maxConnections
+                                port: this.settings.port,
+                                autoStart: this.settings.autoStart,
+                                debugLog: this.settings.debugLog,
+                                maxConnections: this.settings.maxConnections
                             };
-                            
-                            const result = await Editor.Message.request('cocos-mcp-server', 'update-settings', settingsData);
-                            console.log('[Vue App] Save settings result:', result);
-                            settingsChanged.value = false;
+
+                            await this.sendIpcRequest('cocos-mcp-server', 'update-settings', settingsData);
+                            console.log('[Vue App] Settings saved');
+                            this.settingsChanged = false;
                         } catch (error) {
                             console.error('[Vue App] Failed to save settings:', error);
                         }
-                    };
-                    
-                    const copyUrl = async () => {
+                    },
+
+                    async copyUrl() {
                         try {
-                            await navigator.clipboard.writeText(httpUrl.value);
+                            // In 2.x, use a simpler clipboard method or Electron's clipboard
+                            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                                await navigator.clipboard.writeText(this.httpUrl);
+                            } else {
+                                // Fallback for older environments
+                                const textarea = document.createElement('textarea');
+                                textarea.value = this.httpUrl;
+                                document.body.appendChild(textarea);
+                                textarea.select();
+                                document.execCommand('copy');
+                                document.body.removeChild(textarea);
+                            }
                             console.log('[Vue App] URL copied to clipboard');
                         } catch (error) {
                             console.error('[Vue App] Failed to copy URL:', error);
                         }
-                    };
-                    
-                    const loadToolManagerState = async () => {
+                    },
+
+                    async loadToolManagerState() {
                         try {
-                            const result = await Editor.Message.request('cocos-mcp-server', 'getToolManagerState');
-                            if (result && result.success) {
-                                // 总是加载后端状态，确保数据是最新的
-                                availableTools.value = result.availableTools || [];
-                                console.log('[Vue App] Loaded tools:', availableTools.value.length);
-                                
-                                // 更新工具分类
-                                const categories = new Set(availableTools.value.map(tool => tool.category));
-                                toolCategories.value = Array.from(categories);
+                            const result = await this.sendIpcRequest('cocos-mcp-server', 'getToolManagerState');
+                            if (result && result.tools) {
+                                this.availableTools = result.tools;
+                                this.toolCategories = Array.from(new Set(result.tools.map((t: ToolConfig) => t.category)));
                             }
                         } catch (error) {
                             console.error('[Vue App] Failed to load tool manager state:', error);
                         }
-                    };
-                    
-                    const updateToolStatus = async (category: string, name: string, enabled: boolean) => {
+                    },
+
+                    async updateToolStatus(category: string, toolName: string, enabled: boolean) {
                         try {
-                            console.log('[Vue App] updateToolStatus called:', category, name, enabled);
-                            
-                            // 先更新本地状态
-                            const toolIndex = availableTools.value.findIndex(t => t.category === category && t.name === name);
-                            if (toolIndex !== -1) {
-                                availableTools.value[toolIndex].enabled = enabled;
-                                // 强制触发响应式更新
-                                availableTools.value = [...availableTools.value];
-                                console.log('[Vue App] Local state updated, tool enabled:', availableTools.value[toolIndex].enabled);
-                            }
-                            
-                            // 调用后端更新
-                            const result = await Editor.Message.request('cocos-mcp-server', 'updateToolStatus', category, name, enabled);
-                            if (!result || !result.success) {
-                                // 如果后端更新失败，回滚本地状态
-                                if (toolIndex !== -1) {
-                                    availableTools.value[toolIndex].enabled = !enabled;
-                                    availableTools.value = [...availableTools.value];
-                                }
-                                console.error('[Vue App] Backend update failed, rolled back local state');
-                            } else {
-                                console.log('[Vue App] Backend update successful');
-                            }
+                            await this.sendIpcRequest('cocos-mcp-server', 'updateToolStatus', category, toolName, enabled);
+                            await this.loadToolManagerState();
                         } catch (error) {
-                            // 如果发生错误，回滚本地状态
-                            const toolIndex = availableTools.value.findIndex(t => t.category === category && t.name === name);
-                            if (toolIndex !== -1) {
-                                availableTools.value[toolIndex].enabled = !enabled;
-                                availableTools.value = [...availableTools.value];
-                            }
                             console.error('[Vue App] Failed to update tool status:', error);
                         }
-                    };
-                    
-                    const selectAllTools = async () => {
-                        try {
-                            // 直接更新本地状态，然后保存
-                            availableTools.value.forEach(tool => tool.enabled = true);
-                            await saveChanges();
-                        } catch (error) {
-                            console.error('[Vue App] Failed to select all tools:', error);
-                        }
-                    };
-                    
-                    const deselectAllTools = async () => {
-                        try {
-                            // 直接更新本地状态，然后保存
-                            availableTools.value.forEach(tool => tool.enabled = false);
-                            await saveChanges();
-                        } catch (error) {
-                            console.error('[Vue App] Failed to deselect all tools:', error);
-                        }
-                    };
-                    
-                                        const saveChanges = async () => {
-                        try {
-                            // 创建普通对象，避免Vue3响应式对象克隆错误
-                            const updates = availableTools.value.map(tool => ({
-                                category: String(tool.category),
-                                name: String(tool.name),
-                                enabled: Boolean(tool.enabled)
-                            }));
-                            
-                            console.log('[Vue App] Sending updates:', updates.length, 'tools');
-                            
-                            const result = await Editor.Message.request('cocos-mcp-server', 'updateToolStatusBatch', updates);
-                            
-                            if (result && result.success) {
-                                console.log('[Vue App] Tool changes saved successfully');
-                            }
-                        } catch (error) {
-                            console.error('[Vue App] Failed to save tool changes:', error);
-                        }
-                    };
-                    
+                    },
 
-                    
-                    const toggleCategoryTools = async (category: string, enabled: boolean) => {
+                    async toggleCategory(category: string, enabled: boolean) {
                         try {
-                            // 直接更新本地状态，然后保存
-                            availableTools.value.forEach(tool => {
-                                if (tool.category === category) {
-                                    tool.enabled = enabled;
+                            const updates = this.availableTools
+                                .filter((t: ToolConfig) => t.category === category)
+                                .map((t: ToolConfig) => ({
+                                    category: t.category,
+                                    name: t.name,
+                                    enabled: enabled
+                                }));
+
+                            await this.sendIpcRequest('cocos-mcp-server', 'updateToolStatusBatch', updates);
+                            await this.loadToolManagerState();
+                        } catch (error) {
+                            console.error('[Vue App] Failed to toggle category:', error);
+                        }
+                    },
+
+                    async updateServerStatus() {
+                        try {
+                            const status = await this.sendIpcRequest('cocos-mcp-server', 'get-server-status');
+                            if (status) {
+                                this.serverRunning = status.running || false;
+                                this.serverStatus = status.running ? '运行中' : '已停止';
+                                this.connectedClients = status.clients || 0;
+                                this.httpUrl = `http://127.0.0.1:${status.settings?.port || 3000}/mcp`;
+
+                                if (status.settings) {
+                                    this.settings.port = status.settings.port || 3000;
+                                    this.settings.autoStart = status.settings.autoStart || false;
+                                    this.settings.debugLog = status.settings.debugLog || false;
+                                    this.settings.maxConnections = status.settings.maxConnections || 10;
                                 }
-                            });
-                            await saveChanges();
-                        } catch (error) {
-                            console.error('[Vue App] Failed to toggle category tools:', error);
-                        }
-                    };
-                    
-                    const getToolsByCategory = (category: string) => {
-                        return availableTools.value.filter(tool => tool.category === category);
-                    };
-                    
-                    const getCategoryDisplayName = (category: string): string => {
-                        const categoryNames: { [key: string]: string } = {
-                            'scene': '场景工具',
-                            'node': '节点工具',
-                            'component': '组件工具',
-                            'prefab': '预制体工具',
-                            'project': '项目工具',
-                            'debug': '调试工具',
-                            'preferences': '偏好设置工具',
-                            'server': '服务器工具',
-                            'broadcast': '广播工具',
-                            'sceneAdvanced': '高级场景工具',
-                            'sceneView': '场景视图工具',
-                            'referenceImage': '参考图片工具',
-                            'assetAdvanced': '高级资源工具',
-                            'validation': '验证工具'
-                        };
-                        return categoryNames[category] || category;
-                    };
-                    
-
-                    
-
-                    
-                    // 监听设置变化
-                    watch(settings, () => {
-                        settingsChanged.value = true;
-                    }, { deep: true });
-                    
-
-                    
-                    // 组件挂载时加载数据
-                    onMounted(async () => {
-                        // 加载工具管理器状态
-                        await loadToolManagerState();
-                        
-                        // 从服务器状态获取设置信息
-                        try {
-                            const serverStatus = await Editor.Message.request('cocos-mcp-server', 'get-server-status');
-                            if (serverStatus && serverStatus.settings) {
-                                settings.value = {
-                                    port: serverStatus.settings.port || 3000,
-                                    autoStart: serverStatus.settings.autoStart || false,
-                                    debugLog: serverStatus.settings.enableDebugLog || false,
-                                    maxConnections: serverStatus.settings.maxConnections || 10
-                                };
-                                console.log('[Vue App] Server settings loaded from status:', serverStatus.settings);
-                            } else if (serverStatus && serverStatus.port) {
-                                // 兼容旧版本，只获取端口信息
-                                settings.value.port = serverStatus.port;
-                                console.log('[Vue App] Port loaded from server status:', serverStatus.port);
                             }
                         } catch (error) {
-                            console.error('[Vue App] Failed to get server status:', error);
-                            console.log('[Vue App] Using default server settings');
+                            console.error('[Vue App] Failed to update server status:', error);
                         }
-                        
-                        // 定期更新服务器状态
-                        setInterval(async () => {
+                    },
+
+                    // Helper method for IPC requests in 2.x
+                    sendIpcRequest(packageName: string, message: string, ...args: any[]): Promise<any> {
+                        return new Promise((resolve, reject) => {
                             try {
-                                const result = await Editor.Message.request('cocos-mcp-server', 'get-server-status');
-                                if (result) {
-                                    serverRunning.value = result.running;
-                                    serverStatus.value = result.running ? '运行中' : '已停止';
-                                    connectedClients.value = result.clients || 0;
-                                    httpUrl.value = result.running ? `http://localhost:${result.port}` : '';
-                                    isProcessing.value = false;
-                                }
+                                // In 2.x, we need to use Editor.Ipc
+                                // The exact signature may vary, so this is a compatibility layer
+                                const fullMessage = `${packageName}:${message}`;
+                                Editor.Ipc.sendToMain(fullMessage, ...args, (error: Error | null, result: any) => {
+                                    if (error) {
+                                        reject(error);
+                                    } else {
+                                        resolve(result);
+                                    }
+                                });
                             } catch (error) {
-                                console.error('[Vue App] Failed to get server status:', error);
+                                reject(error);
                             }
-                        }, 2000);
-                    });
-                    
-                    return {
-                        // 数据
-                        activeTab,
-                        serverRunning,
-                        serverStatus,
-                        connectedClients,
-                        httpUrl,
-                        isProcessing,
-                        settings,
-                        availableTools,
-                        toolCategories,
-                        settingsChanged,
-                        
-                        // 计算属性
-                        statusClass,
-                        totalTools,
-                        enabledTools,
-                        disabledTools,
-                        
-                        // 方法
-                        switchTab,
-                        toggleServer,
-                        saveSettings,
-                        copyUrl,
-                        loadToolManagerState,
-                        updateToolStatus,
-                        selectAllTools,
-                        deselectAllTools,
-                        saveChanges,
-                        toggleCategoryTools,
-                        getToolsByCategory,
-                        getCategoryDisplayName
-                    };
+                        });
+                    }
                 },
-                template: readFileSync(join(__dirname, '../../../static/template/vue/mcp-server-app.html'), 'utf-8'),
-            }));
-            
-            app.mount(this.$.app);
-            panelDataMap.set(this, app);
-            
-            console.log('[MCP Panel] Vue3 app mounted successfully');
+                watch: {
+                    'settings.port'() {
+                        this.settingsChanged = true;
+                    },
+                    'settings.autoStart'() {
+                        this.settingsChanged = true;
+                    },
+                    'settings.debugLog'() {
+                        this.settingsChanged = true;
+                    },
+                    'settings.maxConnections'() {
+                        this.settingsChanged = true;
+                    }
+                },
+                mounted() {
+                    console.log('[Vue App] Component mounted');
+                    this.updateServerStatus();
+
+                    // Poll for status updates every 2 seconds
+                    setInterval(() => {
+                        this.updateServerStatus();
+                    }, 2000);
+                }
+            });
+
+            console.log('[MCP Panel] Vue 2 app initialized');
         }
     },
-    beforeClose() { },
+    beforeClose() {
+        // Clean up if needed
+    },
     close() {
-        const app = panelDataMap.get(this);
-        if (app) {
-            app.unmount();
-        }
+        // Panel closing
     },
 });

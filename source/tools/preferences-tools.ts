@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
 
 export class PreferencesTools implements ToolExecutor {
@@ -221,7 +223,7 @@ export class PreferencesTools implements ToolExecutor {
             // Common preference categories in Cocos Creator
             const categories = [
                 'general',
-                'external-tools', 
+                'external-tools',
                 'data-editor',
                 'laboratory',
                 'extensions',

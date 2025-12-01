@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor, ConsoleMessage, PerformanceStats, ValidationResult, ValidationIssue } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -220,13 +222,13 @@ export class DebugTools implements ToolExecutor {
 
     private async getConsoleLogs(limit: number = 100, filter: string = 'all'): Promise<ToolResponse> {
         let logs = this.consoleMessages;
-        
+
         if (filter !== 'all') {
             logs = logs.filter(log => log.type === filter);
         }
 
         const recentLogs = logs.slice(-limit);
-        
+
         return {
             success: true,
             data: {
@@ -239,7 +241,7 @@ export class DebugTools implements ToolExecutor {
 
     private async clearConsole(): Promise<ToolResponse> {
         this.consoleMessages = [];
-        
+
         try {
             // Note: Editor.Message.send may not return a promise in all versions
             Editor.Message.send('console', 'clear');
@@ -281,7 +283,7 @@ export class DebugTools implements ToolExecutor {
 
                 try {
                     const nodeData = await Editor.Message.request('scene', 'query-node', nodeUuid);
-                    
+
                     const tree = {
                         uuid: nodeData.uuid,
                         name: nodeData.name,
@@ -367,7 +369,7 @@ export class DebugTools implements ToolExecutor {
             if (options.checkPerformance) {
                 const hierarchy = await Editor.Message.request('scene', 'query-hierarchy');
                 const nodeCount = this.countNodes(hierarchy.children);
-                
+
                 if (nodeCount > 1000) {
                     issues.push({
                         type: 'warning',
@@ -430,7 +432,7 @@ export class DebugTools implements ToolExecutor {
                 '/Users/lizhiyong/NewProject_3',
                 process.cwd(),
             ].filter(p => p !== null);
-            
+
             for (const basePath of possiblePaths) {
                 const testPath = path.join(basePath, 'temp/logs/project.log');
                 if (fs.existsSync(testPath)) {
@@ -438,7 +440,7 @@ export class DebugTools implements ToolExecutor {
                     break;
                 }
             }
-            
+
             if (!logFilePath) {
                 return {
                     success: false,
@@ -449,27 +451,27 @@ export class DebugTools implements ToolExecutor {
             // Read the file content
             const logContent = fs.readFileSync(logFilePath, 'utf8');
             const logLines = logContent.split('\n').filter(line => line.trim() !== '');
-            
+
             // Get the last N lines
             const recentLines = logLines.slice(-lines);
-            
+
             // Apply filters
             let filteredLines = recentLines;
-            
+
             // Filter by log level if not 'ALL'
             if (logLevel !== 'ALL') {
-                filteredLines = filteredLines.filter(line => 
+                filteredLines = filteredLines.filter(line =>
                     line.includes(`[${logLevel}]`) || line.includes(logLevel.toLowerCase())
                 );
             }
-            
+
             // Filter by keyword if provided
             if (filterKeyword) {
-                filteredLines = filteredLines.filter(line => 
+                filteredLines = filteredLines.filter(line =>
                     line.toLowerCase().includes(filterKeyword.toLowerCase())
                 );
             }
-            
+
             return {
                 success: true,
                 data: {
@@ -499,7 +501,7 @@ export class DebugTools implements ToolExecutor {
                 '/Users/lizhiyong/NewProject_3',
                 process.cwd(),
             ].filter(p => p !== null);
-            
+
             for (const basePath of possiblePaths) {
                 const testPath = path.join(basePath, 'temp/logs/project.log');
                 if (fs.existsSync(testPath)) {
@@ -507,7 +509,7 @@ export class DebugTools implements ToolExecutor {
                     break;
                 }
             }
-            
+
             if (!logFilePath) {
                 return {
                     success: false,
@@ -518,7 +520,7 @@ export class DebugTools implements ToolExecutor {
             const stats = fs.statSync(logFilePath);
             const logContent = fs.readFileSync(logFilePath, 'utf8');
             const lineCount = logContent.split('\n').filter(line => line.trim() !== '').length;
-            
+
             return {
                 success: true,
                 data: {
@@ -548,7 +550,7 @@ export class DebugTools implements ToolExecutor {
                 '/Users/lizhiyong/NewProject_3',
                 process.cwd(),
             ].filter(p => p !== null);
-            
+
             for (const basePath of possiblePaths) {
                 const testPath = path.join(basePath, 'temp/logs/project.log');
                 if (fs.existsSync(testPath)) {
@@ -556,7 +558,7 @@ export class DebugTools implements ToolExecutor {
                     break;
                 }
             }
-            
+
             if (!logFilePath) {
                 return {
                     success: false,
@@ -566,7 +568,7 @@ export class DebugTools implements ToolExecutor {
 
             const logContent = fs.readFileSync(logFilePath, 'utf8');
             const logLines = logContent.split('\n');
-            
+
             // Create regex pattern (support both string and regex patterns)
             let regex: RegExp;
             try {
@@ -575,17 +577,17 @@ export class DebugTools implements ToolExecutor {
                 // If pattern is not valid regex, treat as literal string
                 regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
             }
-            
+
             const matches: any[] = [];
             let resultCount = 0;
-            
+
             for (let i = 0; i < logLines.length && resultCount < maxResults; i++) {
                 const line = logLines[i];
                 if (regex.test(line)) {
                     // Get context lines
                     const contextStart = Math.max(0, i - contextLines);
                     const contextEnd = Math.min(logLines.length - 1, i + contextLines);
-                    
+
                     const contextLinesArray = [];
                     for (let j = contextStart; j <= contextEnd; j++) {
                         contextLinesArray.push({
@@ -594,20 +596,20 @@ export class DebugTools implements ToolExecutor {
                             isMatch: j === i
                         });
                     }
-                    
+
                     matches.push({
                         lineNumber: i + 1,
                         matchedLine: line,
                         context: contextLinesArray
                     });
-                    
+
                     resultCount++;
-                    
+
                     // Reset regex lastIndex for global search
                     regex.lastIndex = 0;
                 }
             }
-            
+
             return {
                 success: true,
                 data: {
@@ -631,12 +633,12 @@ export class DebugTools implements ToolExecutor {
         const units = ['B', 'KB', 'MB', 'GB'];
         let size = bytes;
         let unitIndex = 0;
-        
+
         while (size >= 1024 && unitIndex < units.length - 1) {
             size /= 1024;
             unitIndex++;
         }
-        
+
         return `${size.toFixed(2)} ${units[unitIndex]}`;
     }
 }

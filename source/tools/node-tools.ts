@@ -1,3 +1,6 @@
+/// <reference path="../types/editor-2x.d.ts" />
+/// <reference path="../types/cc-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor, NodeInfo } from '../types';
 import { ComponentTools } from './component-tools';
 
@@ -310,7 +313,7 @@ export class NodeTools implements ToolExecutor {
         return new Promise(async (resolve) => {
             try {
                 let targetParentUuid = args.parentUuid;
-                
+
                 // 如果没有提供父节点UUID，获取场景根节点
                 if (!targetParentUuid) {
                     try {
@@ -470,7 +473,7 @@ export class NodeTools implements ToolExecutor {
                     console.warn('Failed to get verification data:', err);
                 }
 
-                const successMessage = finalAssetUuid 
+                const successMessage = finalAssetUuid
                     ? `Node '${args.name}' instantiated from asset successfully`
                     : `Node '${args.name}' created successfully`;
 
@@ -489,8 +492,8 @@ export class NodeTools implements ToolExecutor {
                 });
 
             } catch (err: any) {
-                resolve({ 
-                    success: false, 
+                resolve({
+                    success: false,
                     error: `Failed to create node: ${err.message}. Args: ${JSON.stringify(args)}`
                 });
             }
@@ -507,7 +510,7 @@ export class NodeTools implements ToolExecutor {
                     });
                     return;
                 }
-                
+
                 // 根据实际返回的数据结构解析节点信息
                 const info: NodeInfo = {
                     uuid: nodeData.uuid?.value || uuid,
@@ -538,14 +541,14 @@ export class NodeTools implements ToolExecutor {
             // Using tree traversal as primary approach
             Editor.Message.request('scene', 'query-node-tree').then((tree: any) => {
                 const nodes: any[] = [];
-                
+
                 const searchTree = (node: any, currentPath: string = '') => {
                     const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
-                    
-                    const matches = exactMatch ? 
-                        node.name === pattern : 
+
+                    const matches = exactMatch ?
+                        node.name === pattern :
                         node.name.toLowerCase().includes(pattern.toLowerCase());
-                    
+
                     if (matches) {
                         nodes.push({
                             uuid: node.uuid,
@@ -553,18 +556,18 @@ export class NodeTools implements ToolExecutor {
                             path: nodePath
                         });
                     }
-                    
+
                     if (node.children) {
                         for (const child of node.children) {
                             searchTree(child, nodePath);
                         }
                     }
                 };
-                
+
                 if (tree) {
                     searchTree(tree);
                 }
-                
+
                 resolve({ success: true, data: nodes });
             }).catch((err: Error) => {
                 // 备用方案：使用场景脚本
@@ -573,7 +576,7 @@ export class NodeTools implements ToolExecutor {
                     method: 'findNodes',
                     args: [pattern, exactMatch]
                 };
-                
+
                 Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
                     resolve(result);
                 }).catch((err2: Error) => {
@@ -607,7 +610,7 @@ export class NodeTools implements ToolExecutor {
                     method: 'findNodeByName',
                     args: [name]
                 };
-                
+
                 Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
                     resolve(result);
                 }).catch((err2: Error) => {
@@ -621,7 +624,7 @@ export class NodeTools implements ToolExecutor {
         if (node.name === targetName) {
             return node;
         }
-        
+
         if (node.children) {
             for (const child of node.children) {
                 const found = this.searchNodeInTree(child, targetName);
@@ -630,7 +633,7 @@ export class NodeTools implements ToolExecutor {
                 }
             }
         }
-        
+
         return null;
     }
 
@@ -639,7 +642,7 @@ export class NodeTools implements ToolExecutor {
             // 尝试查询场景节点树
             Editor.Message.request('scene', 'query-node-tree').then((tree: any) => {
                 const nodes: any[] = [];
-                
+
                 const traverseTree = (node: any) => {
                     nodes.push({
                         uuid: node.uuid,
@@ -648,18 +651,18 @@ export class NodeTools implements ToolExecutor {
                         active: node.active,
                         path: this.getNodePath(node)
                     });
-                    
+
                     if (node.children) {
                         for (const child of node.children) {
                             traverseTree(child);
                         }
                     }
                 };
-                
+
                 if (tree && tree.children) {
                     traverseTree(tree);
                 }
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -674,7 +677,7 @@ export class NodeTools implements ToolExecutor {
                     method: 'getAllNodes',
                     args: []
                 };
-                
+
                 Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
                     resolve(result);
                 }).catch((err2: Error) => {
@@ -736,7 +739,7 @@ export class NodeTools implements ToolExecutor {
                     method: 'setNodeProperty',
                     args: [uuid, property, value]
                 };
-                
+
                 Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
                     resolve(result);
                 }).catch((err2: Error) => {
@@ -752,7 +755,7 @@ export class NodeTools implements ToolExecutor {
             const updatePromises: Promise<any>[] = [];
             const updates: string[] = [];
             const warnings: string[] = [];
-            
+
             try {
                 // First get node info to determine if it's 2D or 3D
                 const nodeInfoResponse = await this.getNodeInfo(uuid);
@@ -760,16 +763,16 @@ export class NodeTools implements ToolExecutor {
                     resolve({ success: false, error: 'Failed to get node information' });
                     return;
                 }
-                
+
                 const nodeInfo = nodeInfoResponse.data;
                 const is2DNode = this.is2DNode(nodeInfo);
-                
+
                 if (position) {
                     const normalizedPosition = this.normalizeTransformValue(position, 'position', is2DNode);
                     if (normalizedPosition.warning) {
                         warnings.push(normalizedPosition.warning);
                     }
-                    
+
                     updatePromises.push(
                         Editor.Message.request('scene', 'set-property', {
                             uuid: uuid,
@@ -779,13 +782,13 @@ export class NodeTools implements ToolExecutor {
                     );
                     updates.push('position');
                 }
-                
+
                 if (rotation) {
                     const normalizedRotation = this.normalizeTransformValue(rotation, 'rotation', is2DNode);
                     if (normalizedRotation.warning) {
                         warnings.push(normalizedRotation.warning);
                     }
-                    
+
                     updatePromises.push(
                         Editor.Message.request('scene', 'set-property', {
                             uuid: uuid,
@@ -795,13 +798,13 @@ export class NodeTools implements ToolExecutor {
                     );
                     updates.push('rotation');
                 }
-                
+
                 if (scale) {
                     const normalizedScale = this.normalizeTransformValue(scale, 'scale', is2DNode);
                     if (normalizedScale.warning) {
                         warnings.push(normalizedScale.warning);
                     }
-                    
+
                     updatePromises.push(
                         Editor.Message.request('scene', 'set-property', {
                             uuid: uuid,
@@ -811,14 +814,14 @@ export class NodeTools implements ToolExecutor {
                     );
                     updates.push('scale');
                 }
-                
+
                 if (updatePromises.length === 0) {
                     resolve({ success: false, error: 'No transform properties specified' });
                     return;
                 }
-                
+
                 await Promise.all(updatePromises);
-                
+
                 // Verify the changes by getting updated node info
                 const updatedNodeInfo = await this.getNodeInfo(uuid);
                 const response: any = {
@@ -848,17 +851,17 @@ export class NodeTools implements ToolExecutor {
                         }
                     }
                 };
-                
+
                 if (warnings.length > 0) {
                     response.warning = warnings.join('; ');
                 }
-                
+
                 resolve(response);
-                
+
             } catch (err: any) {
-                resolve({ 
-                    success: false, 
-                    error: `Failed to update transform: ${err.message}` 
+                resolve({
+                    success: false,
+                    error: `Failed to update transform: ${err.message}`
                 });
             }
         });
@@ -867,9 +870,9 @@ export class NodeTools implements ToolExecutor {
     private is2DNode(nodeInfo: any): boolean {
         // Check if node has 2D-specific components or is under Canvas
         const components = nodeInfo.components || [];
-        
+
         // Check for common 2D components
-        const has2DComponents = components.some((comp: any) => 
+        const has2DComponents = components.some((comp: any) =>
             comp.type && (
                 comp.type.includes('cc.Sprite') ||
                 comp.type.includes('cc.Label') ||
@@ -880,12 +883,12 @@ export class NodeTools implements ToolExecutor {
                 comp.type.includes('cc.Graphics')
             )
         );
-        
+
         if (has2DComponents) {
             return true;
         }
-        
-        // Check for 3D-specific components  
+
+        // Check for 3D-specific components
         const has3DComponents = components.some((comp: any) =>
             comp.type && (
                 comp.type.includes('cc.MeshRenderer') ||
@@ -896,17 +899,17 @@ export class NodeTools implements ToolExecutor {
                 comp.type.includes('cc.SpotLight')
             )
         );
-        
+
         if (has3DComponents) {
             return false;
         }
-        
+
         // Default heuristic: if z position is 0 and hasn't been changed, likely 2D
         const position = nodeInfo.position;
         if (position && Math.abs(position.z) < 0.001) {
             return true;
         }
-        
+
         // Default to 3D if uncertain
         return false;
     }
@@ -914,7 +917,7 @@ export class NodeTools implements ToolExecutor {
     private normalizeTransformValue(value: any, type: 'position' | 'rotation' | 'scale', is2D: boolean): { value: any, warning?: string } {
         const result = { ...value };
         let warning: string | undefined;
-        
+
         if (is2D) {
             switch (type) {
                 case 'position':
@@ -925,9 +928,9 @@ export class NodeTools implements ToolExecutor {
                         result.z = 0;
                     }
                     break;
-                    
+
                 case 'rotation':
-                    if ((value.x !== undefined && Math.abs(value.x) > 0.001) || 
+                    if ((value.x !== undefined && Math.abs(value.x) > 0.001) ||
                         (value.y !== undefined && Math.abs(value.y) > 0.001)) {
                         warning = `2D node: x,y rotations ignored, only z rotation applied`;
                         result.x = 0;
@@ -938,7 +941,7 @@ export class NodeTools implements ToolExecutor {
                     }
                     result.z = result.z || 0;
                     break;
-                    
+
                 case 'scale':
                     if (value.z === undefined) {
                         result.z = 1; // Default scale for 2D
@@ -951,7 +954,7 @@ export class NodeTools implements ToolExecutor {
             result.y = result.y !== undefined ? result.y : (type === 'scale' ? 1 : 0);
             result.z = result.z !== undefined ? result.z : (type === 'scale' ? 1 : 0);
         }
-        
+
         return { value: result, warning };
     }
 
@@ -1015,12 +1018,12 @@ export class NodeTools implements ToolExecutor {
                 const nodeInfo = nodeInfoResponse.data;
                 const is2D = this.is2DNode(nodeInfo);
                 const components = nodeInfo.components || [];
-                
+
                 // Collect detection reasons
                 const detectionReasons: string[] = [];
-                
+
                 // Check for 2D components
-                const twoDComponents = components.filter((comp: any) => 
+                const twoDComponents = components.filter((comp: any) =>
                     comp.type && (
                         comp.type.includes('cc.Sprite') ||
                         comp.type.includes('cc.Label') ||
@@ -1031,7 +1034,7 @@ export class NodeTools implements ToolExecutor {
                         comp.type.includes('cc.Graphics')
                     )
                 );
-                
+
                 // Check for 3D components
                 const threeDComponents = components.filter((comp: any) =>
                     comp.type && (
@@ -1047,11 +1050,11 @@ export class NodeTools implements ToolExecutor {
                 if (twoDComponents.length > 0) {
                     detectionReasons.push(`Has 2D components: ${twoDComponents.map((c: any) => c.type).join(', ')}`);
                 }
-                
+
                 if (threeDComponents.length > 0) {
                     detectionReasons.push(`Has 3D components: ${threeDComponents.map((c: any) => c.type).join(', ')}`);
                 }
-                
+
                 // Check position for heuristic
                 const position = nodeInfo.position;
                 if (position && Math.abs(position.z) < 0.001) {
@@ -1083,11 +1086,11 @@ export class NodeTools implements ToolExecutor {
                         }
                     }
                 });
-                
+
             } catch (err: any) {
-                resolve({ 
-                    success: false, 
-                    error: `Failed to detect node type: ${err.message}` 
+                resolve({
+                    success: false,
+                    error: `Failed to detect node type: ${err.message}`
                 });
             }
         });
@@ -1095,20 +1098,20 @@ export class NodeTools implements ToolExecutor {
 
     private getComponentCategory(componentType: string): string {
         if (!componentType) return 'unknown';
-        
-        if (componentType.includes('cc.Sprite') || componentType.includes('cc.Label') || 
+
+        if (componentType.includes('cc.Sprite') || componentType.includes('cc.Label') ||
             componentType.includes('cc.Button') || componentType.includes('cc.Layout') ||
             componentType.includes('cc.Widget') || componentType.includes('cc.Mask') ||
             componentType.includes('cc.Graphics')) {
             return '2D';
         }
-        
+
         if (componentType.includes('cc.MeshRenderer') || componentType.includes('cc.Camera') ||
             componentType.includes('cc.Light') || componentType.includes('cc.DirectionalLight') ||
             componentType.includes('cc.PointLight') || componentType.includes('cc.SpotLight')) {
             return '3D';
         }
-        
+
         return 'generic';
     }
 }

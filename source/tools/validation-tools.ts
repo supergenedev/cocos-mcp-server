@@ -1,3 +1,5 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
 
 export class ValidationTools implements ToolExecutor {
@@ -172,7 +174,7 @@ export class ValidationTools implements ToolExecutor {
 
     private fixJsonString(jsonStr: string): string {
         let fixed = jsonStr;
-        
+
         // Fix common escape character issues
         fixed = fixed
             // Fix unescaped quotes in string values
@@ -190,7 +192,7 @@ export class ValidationTools implements ToolExecutor {
             .replace(/\t/g, '\\t')
             // Fix single quotes to double quotes
             .replace(/'/g, '"');
-        
+
         return fixed;
     }
 
@@ -237,7 +239,7 @@ export class ValidationTools implements ToolExecutor {
 
     private getJsonFixSuggestions(jsonStr: string): string[] {
         const suggestions: string[] = [];
-        
+
         if (jsonStr.includes('\\"')) {
             suggestions.push('Check for improperly escaped quotes');
         }
@@ -250,7 +252,7 @@ export class ValidationTools implements ToolExecutor {
         if (jsonStr.match(/,\s*[}\]]/)) {
             suggestions.push('Remove trailing commas');
         }
-        
+
         return suggestions;
     }
 
