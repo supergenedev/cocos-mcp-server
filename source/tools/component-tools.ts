@@ -95,7 +95,6 @@ export class ComponentTools implements ToolExecutor {
                                 '• cc.Label: string (text content), fontSize (font size), color (text color)\n' +
                                 '• cc.Sprite: spriteFrame (sprite frame), color (tint color), sizeMode (size mode)\n' +
                                 '• cc.Button: normalColor (normal color), pressedColor (pressed color), target (target node)\n' +
-                                '• cc.UITransform: contentSize (content size), anchorPoint (anchor point)\n' +
                                 '• Custom Scripts: Based on properties defined in the script'
                         },
                         propertyType: {
@@ -226,11 +225,9 @@ export class ComponentTools implements ToolExecutor {
                     return;
                 }
             }
-            // 尝试直接使用 Editor API 添加组件
-            Editor.Message.request('scene', 'create-component', {
-                uuid: nodeUuid,
-                component: componentType
-            }).then(async (result: any) => {
+            // 使用 2.x API 添加组件
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'addComponentToNode', nodeUuid, componentType);
                 // 等待一段时间让Editor完成组件添加
                 await new Promise(resolve => setTimeout(resolve, 100));
                 // 重新查询节点信息验证组件是否真的添加成功
@@ -267,19 +264,9 @@ export class ComponentTools implements ToolExecutor {
                         error: `Failed to verify component addition: ${verifyError.message}`
                     });
                 }
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'addComponentToNode',
-                    args: [nodeUuid, componentType]
-                };
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
-                    resolve(result);
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Direct API failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+            } catch (err: any) {
+                resolve({ success: false, error: `Failed to add component: ${err.message}` });
+            }
         });
     }
 
@@ -297,12 +284,13 @@ export class ComponentTools implements ToolExecutor {
                 resolve({ success: false, error: `Component cid '${componentType}' not found on node '${nodeUuid}'. 请用getComponents获取type字段（cid）作为componentType。` });
                 return;
             }
-            // 3. 官方API直接移除
+            // 3. 使用 2.x API 移除组件
             try {
-                await Editor.Message.request('scene', 'remove-component', {
-                    uuid: nodeUuid,
-                    component: componentType
-                });
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'removeComponentFromNode', nodeUuid, componentType);
+                if (!result.success) {
+                    resolve({ success: false, error: result.error || 'Failed to remove component' });
+                    return;
+                }
                 // 4. 再查一次确认是否移除
                 const afterRemoveInfo = await this.getComponents(nodeUuid);
                 const stillExists = afterRemoveInfo.success && afterRemoveInfo.data?.components?.some((comp: any) => comp.type === componentType);
@@ -323,8 +311,9 @@ export class ComponentTools implements ToolExecutor {
 
     private async getComponents(nodeUuid: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 优先尝试直接使用 Editor API 查询节点信息
-            Editor.Message.request('scene', 'query-node', nodeUuid).then((nodeData: any) => {
+            try {
+                // 使用 2.x API 查询节点信息
+                const nodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
                 if (nodeData && nodeData.__comps__) {
                     const components = nodeData.__comps__.map((comp: any) => ({
                         type: comp.__type__ || comp.cid || comp.type || 'Unknown',
@@ -343,34 +332,17 @@ export class ComponentTools implements ToolExecutor {
                 } else {
                     resolve({ success: false, error: 'Node not found or no components data' });
                 }
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'getNodeInfo',
-                    args: [nodeUuid]
-                };
-
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
-                    if (result.success) {
-                        resolve({
-                            success: true,
-                            data: result.data.components
-                        });
-                    } else {
-                        resolve(result);
-                    }
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Direct API failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+            } catch (err: any) {
+                resolve({ success: false, error: `Failed to get components: ${err.message}` });
+            }
         });
     }
 
     private async getComponentInfo(nodeUuid: string, componentType: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 优先尝试直接使用 Editor API 查询节点信息
-            Editor.Message.request('scene', 'query-node', nodeUuid).then((nodeData: any) => {
+            try {
+                // 使用 2.x API 查询节点信息
+                const nodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
                 if (nodeData && nodeData.__comps__) {
                     const component = nodeData.__comps__.find((comp: any) => {
                         const compType = comp.__type__ || comp.cid || comp.type;
@@ -393,36 +365,9 @@ export class ComponentTools implements ToolExecutor {
                 } else {
                     resolve({ success: false, error: 'Node not found or no components data' });
                 }
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'getNodeInfo',
-                    args: [nodeUuid]
-                };
-
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
-                    if (result.success && result.data.components) {
-                        const component = result.data.components.find((comp: any) => comp.type === componentType);
-                        if (component) {
-                            resolve({
-                                success: true,
-                                data: {
-                                    nodeUuid: nodeUuid,
-                                    componentType: componentType,
-                                    ...component
-                                }
-                            });
-                        } else {
-                            resolve({ success: false, error: `Component '${componentType}' not found on node` });
-                        }
-                    } else {
-                        resolve({ success: false, error: result.error || 'Failed to get component info' });
-                    }
-                }).catch((err2: Error) => {
-                    resolve({ success: false, error: `Direct API failed: ${err.message}, Scene script failed: ${err2.message}` });
-                });
-            });
+            } catch (err: any) {
+                resolve({ success: false, error: `Failed to get component info: ${err.message}` });
+            }
         });
     }
 
@@ -456,7 +401,7 @@ export class ComponentTools implements ToolExecutor {
             return null;
         }
         try {
-            const nodeTree = await Editor.Message.request('scene', 'query-node-tree');
+            const nodeTree = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNodeTree');
             if (!nodeTree) {
                 console.warn('[findComponentTypeByUuid] Failed to query node tree.');
                 return null;
@@ -471,7 +416,7 @@ export class ComponentTools implements ToolExecutor {
                 }
 
                 try {
-                    const fullNodeData = await Editor.Message.request('scene', 'query-node', currentNodeInfo.uuid);
+                    const fullNodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', currentNodeInfo.uuid);
                     if (fullNodeData && fullNodeData.__comps__) {
                         for (const comp of fullNodeData.__comps__) {
                             const compAny = comp as any; // Cast to any to access dynamic properties
@@ -720,185 +665,30 @@ export class ComponentTools implements ToolExecutor {
                 // 用于验证的实际期望值（对于组件引用需要特殊处理）
                 let actualExpectedValue = processedValue;
 
-                // Step 5: 获取原始节点数据来构建正确的路径
-                const rawNodeData = await Editor.Message.request('scene', 'query-node', nodeUuid);
-                if (!rawNodeData || !rawNodeData.__comps__) {
+                // Step 5: 使用 2.x API 设置属性
+                // 所有复杂的类型转换은 이미 processedValue에 적용되어 있으므로,
+                // scene.ts의 setComponentPropertyAdvanced 메서드를 호출
+                try {
+                    const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'setComponentPropertyAdvanced',
+                        nodeUuid, componentType, property, processedValue, propertyType);
+
+                    if (!result.success) {
+                        resolve({
+                            success: false,
+                            error: result.error || 'Failed to set component property'
+                        });
+                        return;
+                    }
+                } catch (setError: any) {
                     resolve({
                         success: false,
-                        error: `Failed to get raw node data for property setting`
+                        error: `Failed to set property: ${setError.message}`
                     });
                     return;
                 }
 
-                // 找到原始组件的索引
-                let rawComponentIndex = -1;
-                for (let i = 0; i < rawNodeData.__comps__.length; i++) {
-                    const comp = rawNodeData.__comps__[i] as any;
-                    const compType = comp.__type__ || comp.cid || comp.type || 'Unknown';
-                    if (compType === componentType) {
-                        rawComponentIndex = i;
-                        break;
-                    }
-                }
-
-                if (rawComponentIndex === -1) {
-                    resolve({
-                        success: false,
-                        error: `Could not find component index for setting property`
-                    });
-                    return;
-                }
-
-                // 构建正确的属性路径
-                let propertyPath = `__comps__.${rawComponentIndex}.${property}`;
-
-                // 特殊处理资源类属性
-                if (propertyType === 'asset' || propertyType === 'spriteFrame' || propertyType === 'prefab' ||
-                    (propertyInfo.type === 'asset' && propertyType === 'string')) {
-
-                    console.log(`[ComponentTools] Setting asset reference:`, {
-                        value: processedValue,
-                        property: property,
-                        propertyType: propertyType,
-                        path: propertyPath
-                    });
-
-                    // Determine asset type based on property name
-                    let assetType = 'cc.SpriteFrame'; // default
-                    if (property.toLowerCase().includes('texture')) {
-                        assetType = 'cc.Texture2D';
-                    } else if (property.toLowerCase().includes('material')) {
-                        assetType = 'cc.Material';
-                    } else if (property.toLowerCase().includes('font')) {
-                        assetType = 'cc.Font';
-                    } else if (property.toLowerCase().includes('clip')) {
-                        assetType = 'cc.AudioClip';
-                    } else if (propertyType === 'prefab') {
-                        assetType = 'cc.Prefab';
-                    }
-
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: {
-                            value: processedValue,
-                            type: assetType
-                        }
-                    });
-                } else if (componentType === 'cc.UITransform' && (property === '_contentSize' || property === 'contentSize')) {
-                    // Special handling for UITransform contentSize - set width and height separately
-                    const width = Number(value.width) || 100;
-                    const height = Number(value.height) || 100;
-
-                    // Set width first
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: `__comps__.${rawComponentIndex}.width`,
-                        dump: { value: width }
-                    });
-
-                    // Then set height
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: `__comps__.${rawComponentIndex}.height`,
-                        dump: { value: height }
-                    });
-                } else if (componentType === 'cc.UITransform' && (property === '_anchorPoint' || property === 'anchorPoint')) {
-                    // Special handling for UITransform anchorPoint - set anchorX and anchorY separately
-                    const anchorX = Number(value.x) || 0.5;
-                    const anchorY = Number(value.y) || 0.5;
-
-                    // Set anchorX first
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: `__comps__.${rawComponentIndex}.anchorX`,
-                        dump: { value: anchorX }
-                    });
-
-                    // Then set anchorY
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: `__comps__.${rawComponentIndex}.anchorY`,
-                        dump: { value: anchorY }
-                    });
-                } else if (propertyType === 'color' && processedValue && typeof processedValue === 'object') {
-                    // 特殊处理颜色属性，确保RGBA值正确
-                    // Cocos Creator颜色值范围是0-255
-                    const colorValue = {
-                        r: Math.min(255, Math.max(0, Number(processedValue.r) || 0)),
-                        g: Math.min(255, Math.max(0, Number(processedValue.g) || 0)),
-                        b: Math.min(255, Math.max(0, Number(processedValue.b) || 0)),
-                        a: processedValue.a !== undefined ? Math.min(255, Math.max(0, Number(processedValue.a))) : 255
-                    };
-
-                    console.log(`[ComponentTools] Setting color value:`, colorValue);
-
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: {
-                            value: colorValue,
-                            type: 'cc.Color'
-                        }
-                    });
-                } else if (propertyType === 'vec3' && processedValue && typeof processedValue === 'object') {
-                    // 特殊处理Vec3属性
-                    const vec3Value = {
-                        x: Number(processedValue.x) || 0,
-                        y: Number(processedValue.y) || 0,
-                        z: Number(processedValue.z) || 0
-                    };
-
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: {
-                            value: vec3Value,
-                            type: 'cc.Vec3'
-                        }
-                    });
-                } else if (propertyType === 'vec2' && processedValue && typeof processedValue === 'object') {
-                    // 特殊处理Vec2属性
-                    const vec2Value = {
-                        x: Number(processedValue.x) || 0,
-                        y: Number(processedValue.y) || 0
-                    };
-
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: {
-                            value: vec2Value,
-                            type: 'cc.Vec2'
-                        }
-                    });
-                } else if (propertyType === 'size' && processedValue && typeof processedValue === 'object') {
-                    // 特殊处理Size属性
-                    const sizeValue = {
-                        width: Number(processedValue.width) || 0,
-                        height: Number(processedValue.height) || 0
-                    };
-
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: {
-                            value: sizeValue,
-                            type: 'cc.Size'
-                        }
-                    });
-                } else if (propertyType === 'node' && processedValue && typeof processedValue === 'object' && 'uuid' in processedValue) {
-                    // 特殊处理节点引用
-                    console.log(`[ComponentTools] Setting node reference with UUID: ${processedValue.uuid}`);
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: {
-                            value: processedValue,
-                            type: 'cc.Node'
-                        }
-                    });
-                } else if (propertyType === 'component' && typeof processedValue === 'string') {
+                // Component reference handling needs special processing
+                if (propertyType === 'component' && typeof processedValue === 'string') {
                     // 特殊处理组件引用：通过节点UUID找到组件的__id__
                     const targetNodeUuid = processedValue;
                     console.log(`[ComponentTools] Setting component reference - finding component on node: ${targetNodeUuid}`);
@@ -939,7 +729,7 @@ export class ComponentTools implements ToolExecutor {
 
                     try {
                         // 获取目标节点的组件信息
-                        const targetNodeData = await Editor.Message.request('scene', 'query-node', targetNodeUuid);
+                        const targetNodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', targetNodeUuid);
                         if (!targetNodeData || !targetNodeData.__comps__) {
                             throw new Error(`Target node ${targetNodeUuid} not found or has no components`);
                         }
@@ -1005,63 +795,22 @@ export class ComponentTools implements ToolExecutor {
                             actualExpectedValue = { uuid: componentId };
                         }
 
-                        // 尝试使用与节点/资源引用相同的格式：{uuid: componentId}
-                        // 测试看是否能正确设置组件引用
-                        await Editor.Message.request('scene', 'set-property', {
-                            uuid: nodeUuid,
-                            path: propertyPath,
-                            dump: {
-                                value: { uuid: componentId },  // 使用对象格式，像节点/资源引用一样
-                                type: expectedComponentType
-                            }
-                        });
+                        // Component reference는 setComponentPropertyAdvanced로 처리
+                        // processedValue를 componentId를 포함한 객체로 변환
+                        const componentRefValue = { uuid: componentId };
+                        const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'setComponentPropertyAdvanced',
+                            nodeUuid, componentType, property, componentRefValue, propertyType);
+
+                        if (!result.success) {
+                            throw new Error(result.error || 'Failed to set component reference');
+                        }
 
                     } catch (error) {
                         console.error(`[ComponentTools] Error setting component reference:`, error);
                         throw error;
                     }
-                } else if (propertyType === 'nodeArray' && Array.isArray(processedValue)) {
-                    // 特殊处理节点数组 - 保持预处理的格式
-                    console.log(`[ComponentTools] Setting node array:`, processedValue);
-
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: {
-                            value: processedValue  // 保持 [{uuid: "..."}, {uuid: "..."}] 格式
-                        }
-                    });
-                } else if (propertyType === 'colorArray' && Array.isArray(processedValue)) {
-                    // 特殊处理颜色数组
-                    const colorArrayValue = processedValue.map((item: any) => {
-                        if (item && typeof item === 'object' && 'r' in item) {
-                            return {
-                                r: Math.min(255, Math.max(0, Number(item.r) || 0)),
-                                g: Math.min(255, Math.max(0, Number(item.g) || 0)),
-                                b: Math.min(255, Math.max(0, Number(item.b) || 0)),
-                                a: item.a !== undefined ? Math.min(255, Math.max(0, Number(item.a))) : 255
-                            };
-                        } else {
-                            return { r: 255, g: 255, b: 255, a: 255 };
-                        }
-                    });
-
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: {
-                            value: colorArrayValue,
-                            type: 'cc.Color'
-                        }
-                    });
-                } else {
-                    // Normal property setting for non-asset properties
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: propertyPath,
-                        dump: { value: processedValue }
-                    });
                 }
+                // 其他所有类型은 이미 위에서 setComponentPropertyAdvanced로 처리됨
 
                 // Step 5: 等待Editor完成更新，然后验证设置结果
                 await new Promise(resolve => setTimeout(resolve, 200)); // 等待200ms让Editor完成更新
@@ -1116,11 +865,9 @@ export class ComponentTools implements ToolExecutor {
                     return;
                 }
             }
-            // 首先尝试直接使用脚本名称作为组件类型
-            Editor.Message.request('scene', 'create-component', {
-                uuid: nodeUuid,
-                component: scriptName  // 使用脚本名称而非UUID
-            }).then(async (result: any) => {
+            // 使用 2.x API 添加脚本组件
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'addComponentToNode', nodeUuid, scriptName);
                 // 等待一段时间让Editor完成组件添加
                 await new Promise(resolve => setTimeout(resolve, 100));
                 // 重新查询节点信息验证脚本是否真的添加成功
@@ -1149,23 +896,13 @@ export class ComponentTools implements ToolExecutor {
                         error: `Failed to verify script addition: ${allComponentsInfo2.error || 'Unable to get node components'}`
                     });
                 }
-            }).catch((err: Error) => {
-                // 备用方案：使用场景脚本
-                const options = {
-                    name: 'cocos-mcp-server',
-                    method: 'attachScript',
-                    args: [nodeUuid, scriptPath]
-                };
-                Editor.Message.request('scene', 'execute-scene-script', options).then((result: any) => {
-                    resolve(result);
-                }).catch(() => {
-                    resolve({
-                        success: false,
-                        error: `Failed to attach script '${scriptName}': ${err.message}`,
-                        instruction: 'Please ensure the script is properly compiled and exported as a Component class. You can also manually attach the script through the Properties panel in the editor.'
-                    });
+            } catch (err: any) {
+                resolve({
+                    success: false,
+                    error: `Failed to attach script '${scriptName}': ${err.message}`,
+                    instruction: 'Please ensure the script is properly compiled and exported as a Component class. You can also manually attach the script through the Properties panel in the editor.'
                 });
-            });
+            }
         });
     }
 
@@ -1658,7 +1395,9 @@ export class ComponentTools implements ToolExecutor {
 
         // 检测是否为节点基础属性（应该使用 set_node_property）
         const nodeBasicProperties = [
-            'name', 'active', 'layer', 'mobility', 'parent', 'children', 'hideFlags'
+            'name', 'active', 'layer', 'mobility', 'parent', 'children', 'hideFlags',
+            'width', 'height', 'anchorX', 'anchorY', 'contentSize', 'anchorPoint', 'color',
+            'x', 'y', 'scaleX', 'scaleY', 'opacity'
         ];
 
         // 检测是否为节点变换属性（应该使用 set_node_transform）
@@ -1722,9 +1461,7 @@ export class ComponentTools implements ToolExecutor {
               'color': ['cc.Label', 'cc.Sprite', 'cc.Graphics'],
               'normalColor': ['cc.Button'],
               'pressedColor': ['cc.Button'],
-              'target': ['cc.Button'],
-              'contentSize': ['cc.UITransform'],
-              'anchorPoint': ['cc.UITransform']
+              'target': ['cc.Button']
           };
 
           const recommendedComponents = propertyToComponentMap[property] || [];
@@ -1748,7 +1485,7 @@ export class ComponentTools implements ToolExecutor {
      */
     private async quickVerifyAsset(nodeUuid: string, componentType: string, property: string): Promise<any> {
         try {
-            const rawNodeData = await Editor.Message.request('scene', 'query-node', nodeUuid);
+            const rawNodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
             if (!rawNodeData || !rawNodeData.__comps__) {
                 return null;
             }

@@ -284,6 +284,34 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 node.opacity = value;
             } else if (property === 'color') {
                 node.color = new cc.Color(value.r || 255, value.g || 255, value.b || 255, value.a || 255);
+            } else if (property === 'contentSize') {
+                // In 2.x, contentSize is split into width and height properties
+                if (value && typeof value === 'object') {
+                    if (value.width !== undefined) {
+                        node.width = Number(value.width) || 100;
+                    }
+                    if (value.height !== undefined) {
+                        node.height = Number(value.height) || 100;
+                    }
+                }
+            } else if (property === 'anchorPoint') {
+                // In 2.x, anchorPoint is split into anchorX and anchorY properties
+                if (value && typeof value === 'object') {
+                    if (value.x !== undefined) {
+                        node.anchorX = Number(value.x) || 0.5;
+                    }
+                    if (value.y !== undefined) {
+                        node.anchorY = Number(value.y) || 0.5;
+                    }
+                }
+            } else if (property === 'width') {
+                node.width = Number(value) || 100;
+            } else if (property === 'height') {
+                node.height = Number(value) || 100;
+            } else if (property === 'anchorX') {
+                node.anchorX = Number(value) || 0.5;
+            } else if (property === 'anchorY') {
+                node.anchorY = Number(value) || 0.5;
             } else {
                 // Try to set property directly
                 (node as any)[property] = value;
@@ -413,6 +441,172 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 (component as any).string = value;
             } else {
                 (component as any)[property] = value;
+            }
+
+            return { success: true, message: `Component property '${property}' updated successfully` };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
+     * Set component property with advanced type handling
+     * Supports color, vec2, vec3, size, node references, component references, assets, and arrays
+     */
+    setComponentPropertyAdvanced(nodeUuid: string, componentType: string, property: string, processedValue: any, propertyType: string) {
+        try {
+            const scene = cc.director.getScene();
+            if (!scene) {
+                return { success: false, error: 'No active scene' };
+            }
+
+            const node = scene.getChildByUuid(nodeUuid);
+            if (!node) {
+                return { success: false, error: `Node with UUID ${nodeUuid} not found` };
+            }
+
+            const ComponentClass = cc.js.getClassByName(componentType);
+            if (!ComponentClass) {
+                return { success: false, error: `Component type ${componentType} not found` };
+            }
+
+            const component = node.getComponent(ComponentClass as new () => cc.Component);
+            if (!component) {
+                return { success: false, error: `Component ${componentType} not found on node` };
+            }
+
+            // Handle different property types
+            switch (propertyType) {
+                case 'color':
+                    if (processedValue && typeof processedValue === 'object') {
+                        const color = new cc.Color(
+                            Math.min(255, Math.max(0, Number(processedValue.r) || 0)),
+                            Math.min(255, Math.max(0, Number(processedValue.g) || 0)),
+                            Math.min(255, Math.max(0, Number(processedValue.b) || 0)),
+                            processedValue.a !== undefined ? Math.min(255, Math.max(0, Number(processedValue.a))) : 255
+                        );
+                        (component as any)[property] = color;
+                    }
+                    break;
+
+                case 'vec2':
+                    if (processedValue && typeof processedValue === 'object') {
+                        const vec2 = new cc.Vec2(
+                            Number(processedValue.x) || 0,
+                            Number(processedValue.y) || 0
+                        );
+                        (component as any)[property] = vec2;
+                    }
+                    break;
+
+                case 'vec3':
+                    if (processedValue && typeof processedValue === 'object') {
+                        const vec3 = new cc.Vec3(
+                            Number(processedValue.x) || 0,
+                            Number(processedValue.y) || 0,
+                            Number(processedValue.z) || 0
+                        );
+                        (component as any)[property] = vec3;
+                    }
+                    break;
+
+                case 'size':
+                    if (processedValue && typeof processedValue === 'object') {
+                        // In 2.x, size is typically represented as an object with width and height
+                        (component as any)[property] = {
+                            width: Number(processedValue.width) || 0,
+                            height: Number(processedValue.height) || 0
+                        };
+                    }
+                    break;
+
+                case 'node':
+                    if (processedValue && typeof processedValue === 'object' && 'uuid' in processedValue) {
+                        const targetNode = scene.getChildByUuid(processedValue.uuid);
+                        if (targetNode) {
+                            (component as any)[property] = targetNode;
+                        } else {
+                            return { success: false, error: `Target node with UUID ${processedValue.uuid} not found` };
+                        }
+                    }
+                    break;
+
+                case 'component':
+                    // Component reference: processedValue should be a node UUID string
+                    // We need to find the component on that node
+                    if (typeof processedValue === 'string') {
+                        const targetNode = scene.getChildByUuid(processedValue);
+                        if (!targetNode) {
+                            return { success: false, error: `Target node with UUID ${processedValue} not found` };
+                        }
+                        // Try to find the component type from property metadata
+                        // For now, we'll try common component types or use the componentType parameter
+                        // This is a simplified version - in practice, we'd need to know the expected component type
+                        const targetComponent = (targetNode as any)._components?.[0];
+                        if (targetComponent) {
+                            (component as any)[property] = targetComponent;
+                        } else {
+                            return { success: false, error: `No component found on target node ${processedValue}` };
+                        }
+                    }
+                    break;
+
+                case 'spriteFrame':
+                case 'prefab':
+                case 'asset':
+                    // Asset references: processedValue should have uuid property
+                    if (processedValue && typeof processedValue === 'object' && 'uuid' in processedValue) {
+                        // In 2.x, we need to load the asset by UUID
+                        // This is a simplified version - actual implementation would need asset loading
+                        (component as any)[property] = processedValue;
+                    }
+                    break;
+
+                case 'nodeArray':
+                    if (Array.isArray(processedValue)) {
+                        const nodeArray = processedValue.map((item: any) => {
+                            if (item && typeof item === 'object' && 'uuid' in item) {
+                                return scene.getChildByUuid(item.uuid);
+                            }
+                            return null;
+                        }).filter((n: any) => n !== null);
+                        (component as any)[property] = nodeArray;
+                    }
+                    break;
+
+                case 'colorArray':
+                    if (Array.isArray(processedValue)) {
+                        const colorArray = processedValue.map((item: any) => {
+                            if (item && typeof item === 'object' && 'r' in item) {
+                                return new cc.Color(
+                                    Math.min(255, Math.max(0, Number(item.r) || 0)),
+                                    Math.min(255, Math.max(0, Number(item.g) || 0)),
+                                    Math.min(255, Math.max(0, Number(item.b) || 0)),
+                                    item.a !== undefined ? Math.min(255, Math.max(0, Number(item.a))) : 255
+                                );
+                            }
+                            return new cc.Color(255, 255, 255, 255);
+                        });
+                        (component as any)[property] = colorArray;
+                    }
+                    break;
+
+                case 'numberArray':
+                    if (Array.isArray(processedValue)) {
+                        (component as any)[property] = processedValue.map((item: any) => Number(item));
+                    }
+                    break;
+
+                case 'stringArray':
+                    if (Array.isArray(processedValue)) {
+                        (component as any)[property] = processedValue.map((item: any) => String(item));
+                    }
+                    break;
+
+                default:
+                    // For basic types (string, number, boolean), assign directly
+                    (component as any)[property] = processedValue;
+                    break;
             }
 
             return { success: true, message: `Component property '${property}' updated successfully` };
