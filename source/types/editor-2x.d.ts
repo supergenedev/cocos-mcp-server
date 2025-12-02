@@ -11,13 +11,30 @@ declare namespace Editor {
         function sendToAll(message: string, ...args: any[]): void;
         function sendToMain(message: string, ...args: any[]): void;
         function sendToPanel(panelID: string, message: string, ...args: any[]): void;
-        function sendToWins(message: string, ...args: any[], option?: IpcOption): void;
+        function sendToWins(message: string, ...args: any[]): void;
+        function sendToWins(message: string, args: any[], option: IpcOption): void;
     }
 
     namespace Panel {
         function open(panelID: string, ...args: any[]): void;
         function close(panelID: string): void;
         function focus(panelID: string): void;
+        function extend(options: PanelOptions): any;
+    }
+
+    interface PanelOptions {
+        listeners?: {
+            [key: string]: (...args: any[]) => void;
+        };
+        template?: string;
+        style?: string;
+        $?: {
+            [key: string]: string;
+        };
+        ready?: () => void;
+        beforeClose?: () => void;
+        close?: () => void;
+        [key: string]: any;
     }
 
     // Editor 2.x has appPath as a direct property, not a namespace
@@ -83,6 +100,4 @@ declare namespace Editor {
     function failed(...args: any[]): void;
     function info(...args: any[]): void;
 }
-
-declare const Editor: typeof Editor;
 

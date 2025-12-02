@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'fs-extra';
 import { join } from 'path';
-import * as Vue from 'vue';
+import Vue from 'vue';
 
 // 定义工具配置接口
 interface ToolConfig {
@@ -46,10 +46,12 @@ module.exports = Editor.Panel.extend({
         panelTitle: '#panelTitle',
     },
     ready() {
-        if (this.$.app) {
+        const appElement = (this as any).$.app;
+        if (appElement) {
             // Vue 2 application using Options API
+            // TypeScript strict mode compatibility: use type assertion for Vue instance
             const vm = new Vue({
-                el: this.$.app,
+                el: appElement,
                 data: {
                     activeTab: 'server',
                     serverRunning: false,
@@ -71,29 +73,34 @@ module.exports = Editor.Panel.extend({
                 },
                 computed: {
                     statusClass(): any {
+                        const self = this as any;
                         return {
-                            'status-running': this.serverRunning,
-                            'status-stopped': !this.serverRunning
+                            'status-running': self.serverRunning,
+                            'status-stopped': !self.serverRunning
                         };
                     },
                     totalTools(): number {
-                        return this.availableTools.length;
+                        const self = this as any;
+                        return self.availableTools.length;
                     },
                     enabledTools(): number {
-                        return this.availableTools.filter((t: ToolConfig) => t.enabled).length;
+                        const self = this as any;
+                        return self.availableTools.filter((t: ToolConfig) => t.enabled).length;
                     },
                     disabledTools(): number {
-                        return this.totalTools - this.enabledTools;
+                        const self = this as any;
+                        return self.totalTools - self.enabledTools;
                     },
                     filteredTools(): ToolConfig[] {
-                        let tools = this.availableTools;
+                        const self = this as any;
+                        let tools = self.availableTools;
 
-                        if (this.selectedCategory) {
-                            tools = tools.filter((t: ToolConfig) => t.category === this.selectedCategory);
+                        if (self.selectedCategory) {
+                            tools = tools.filter((t: ToolConfig) => t.category === self.selectedCategory);
                         }
 
-                        if (this.searchQuery) {
-                            const query = this.searchQuery.toLowerCase();
+                        if (self.searchQuery) {
+                            const query = self.searchQuery.toLowerCase();
                             tools = tools.filter((t: ToolConfig) =>
                                 t.name.toLowerCase().includes(query) ||
                                 t.description.toLowerCase().includes(query)
@@ -103,8 +110,9 @@ module.exports = Editor.Panel.extend({
                         return tools;
                     },
                     groupedTools(): any {
+                        const self = this as any;
                         const groups: any = {};
-                        this.filteredTools.forEach((tool: ToolConfig) => {
+                        self.filteredTools.forEach((tool: ToolConfig) => {
                             if (!groups[tool.category]) {
                                 groups[tool.category] = [];
                             }
@@ -115,25 +123,27 @@ module.exports = Editor.Panel.extend({
                 },
                 methods: {
                     switchTab(tabName: string) {
-                        this.activeTab = tabName;
+                        const self = this as any;
+                        self.activeTab = tabName;
                         if (tabName === 'tools') {
-                            this.loadToolManagerState();
+                            self.loadToolManagerState();
                         }
                     },
 
                     async toggleServer() {
+                        const self = this as any;
                         try {
-                            if (this.serverRunning) {
-                                await this.sendIpcRequest('cocos-mcp-server', 'stop-server');
+                            if (self.serverRunning) {
+                                await self.sendIpcRequest('cocos-mcp-server', 'stop-server');
                             } else {
                                 const currentSettings = {
-                                    port: this.settings.port,
-                                    autoStart: this.settings.autoStart,
-                                    enableDebugLog: this.settings.debugLog,
-                                    maxConnections: this.settings.maxConnections
+                                    port: self.settings.port,
+                                    autoStart: self.settings.autoStart,
+                                    enableDebugLog: self.settings.debugLog,
+                                    maxConnections: self.settings.maxConnections
                                 };
-                                await this.sendIpcRequest('cocos-mcp-server', 'update-settings', currentSettings);
-                                await this.sendIpcRequest('cocos-mcp-server', 'start-server');
+                                await self.sendIpcRequest('cocos-mcp-server', 'update-settings', currentSettings);
+                                await self.sendIpcRequest('cocos-mcp-server', 'start-server');
                             }
                             console.log('[Vue App] Server toggled');
                         } catch (error) {
@@ -142,31 +152,33 @@ module.exports = Editor.Panel.extend({
                     },
 
                     async saveSettings() {
+                        const self = this as any;
                         try {
                             const settingsData = {
-                                port: this.settings.port,
-                                autoStart: this.settings.autoStart,
-                                debugLog: this.settings.debugLog,
-                                maxConnections: this.settings.maxConnections
+                                port: self.settings.port,
+                                autoStart: self.settings.autoStart,
+                                debugLog: self.settings.debugLog,
+                                maxConnections: self.settings.maxConnections
                             };
 
-                            await this.sendIpcRequest('cocos-mcp-server', 'update-settings', settingsData);
+                            await self.sendIpcRequest('cocos-mcp-server', 'update-settings', settingsData);
                             console.log('[Vue App] Settings saved');
-                            this.settingsChanged = false;
+                            self.settingsChanged = false;
                         } catch (error) {
                             console.error('[Vue App] Failed to save settings:', error);
                         }
                     },
 
                     async copyUrl() {
+                        const self = this as any;
                         try {
                             // In 2.x, use a simpler clipboard method or Electron's clipboard
                             if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                                await navigator.clipboard.writeText(this.httpUrl);
+                                await navigator.clipboard.writeText(self.httpUrl);
                             } else {
                                 // Fallback for older environments
                                 const textarea = document.createElement('textarea');
-                                textarea.value = this.httpUrl;
+                                textarea.value = self.httpUrl;
                                 document.body.appendChild(textarea);
                                 textarea.select();
                                 document.execCommand('copy');
@@ -179,11 +191,12 @@ module.exports = Editor.Panel.extend({
                     },
 
                     async loadToolManagerState() {
+                        const self = this as any;
                         try {
-                            const result = await this.sendIpcRequest('cocos-mcp-server', 'getToolManagerState');
+                            const result = await self.sendIpcRequest('cocos-mcp-server', 'get-tool-manager-state');
                             if (result && result.tools) {
-                                this.availableTools = result.tools;
-                                this.toolCategories = Array.from(new Set(result.tools.map((t: ToolConfig) => t.category)));
+                                self.availableTools = result.tools;
+                                self.toolCategories = Array.from(new Set(result.tools.map((t: ToolConfig) => t.category)));
                             }
                         } catch (error) {
                             console.error('[Vue App] Failed to load tool manager state:', error);
@@ -191,17 +204,19 @@ module.exports = Editor.Panel.extend({
                     },
 
                     async updateToolStatus(category: string, toolName: string, enabled: boolean) {
+                        const self = this as any;
                         try {
-                            await this.sendIpcRequest('cocos-mcp-server', 'updateToolStatus', category, toolName, enabled);
-                            await this.loadToolManagerState();
+                            await self.sendIpcRequest('cocos-mcp-server', 'update-tool-status', category, toolName, enabled);
+                            await self.loadToolManagerState();
                         } catch (error) {
                             console.error('[Vue App] Failed to update tool status:', error);
                         }
                     },
 
                     async toggleCategory(category: string, enabled: boolean) {
+                        const self = this as any;
                         try {
-                            const updates = this.availableTools
+                            const updates = self.availableTools
                                 .filter((t: ToolConfig) => t.category === category)
                                 .map((t: ToolConfig) => ({
                                     category: t.category,
@@ -209,27 +224,28 @@ module.exports = Editor.Panel.extend({
                                     enabled: enabled
                                 }));
 
-                            await this.sendIpcRequest('cocos-mcp-server', 'updateToolStatusBatch', updates);
-                            await this.loadToolManagerState();
+                            await self.sendIpcRequest('cocos-mcp-server', 'update-tool-status-batch', updates);
+                            await self.loadToolManagerState();
                         } catch (error) {
                             console.error('[Vue App] Failed to toggle category:', error);
                         }
                     },
 
                     async updateServerStatus() {
+                        const self = this as any;
                         try {
-                            const status = await this.sendIpcRequest('cocos-mcp-server', 'get-server-status');
+                            const status = await self.sendIpcRequest('cocos-mcp-server', 'get-server-status');
                             if (status) {
-                                this.serverRunning = status.running || false;
-                                this.serverStatus = status.running ? '运行中' : '已停止';
-                                this.connectedClients = status.clients || 0;
-                                this.httpUrl = `http://127.0.0.1:${status.settings?.port || 3000}/mcp`;
+                                self.serverRunning = status.running || false;
+                                self.serverStatus = status.running ? '运行中' : '已停止';
+                                self.connectedClients = status.clients || 0;
+                                self.httpUrl = `http://127.0.0.1:${status.settings?.port || 3000}/mcp`;
 
                                 if (status.settings) {
-                                    this.settings.port = status.settings.port || 3000;
-                                    this.settings.autoStart = status.settings.autoStart || false;
-                                    this.settings.debugLog = status.settings.debugLog || false;
-                                    this.settings.maxConnections = status.settings.maxConnections || 10;
+                                    self.settings.port = status.settings.port || 3000;
+                                    self.settings.autoStart = status.settings.autoStart || false;
+                                    self.settings.debugLog = status.settings.debugLog || false;
+                                    self.settings.maxConnections = status.settings.maxConnections || 10;
                                 }
                             }
                         } catch (error) {
@@ -244,6 +260,7 @@ module.exports = Editor.Panel.extend({
                                 // In 2.x, we need to use Editor.Ipc
                                 // The exact signature may vary, so this is a compatibility layer
                                 const fullMessage = `${packageName}:${message}`;
+                                // Type assertion needed because TypeScript doesn't support rest params before callback
                                 Editor.Ipc.sendToMain(fullMessage, ...args, (error: Error | null, result: any) => {
                                     if (error) {
                                         reject(error);
@@ -259,25 +276,30 @@ module.exports = Editor.Panel.extend({
                 },
                 watch: {
                     'settings.port'() {
-                        this.settingsChanged = true;
+                        const self = this as any;
+                        self.settingsChanged = true;
                     },
                     'settings.autoStart'() {
-                        this.settingsChanged = true;
+                        const self = this as any;
+                        self.settingsChanged = true;
                     },
                     'settings.debugLog'() {
-                        this.settingsChanged = true;
+                        const self = this as any;
+                        self.settingsChanged = true;
                     },
                     'settings.maxConnections'() {
-                        this.settingsChanged = true;
+                        const self = this as any;
+                        self.settingsChanged = true;
                     }
                 },
                 mounted() {
+                    const self = this as any;
                     console.log('[Vue App] Component mounted');
-                    this.updateServerStatus();
+                    self.updateServerStatus();
 
                     // Poll for status updates every 2 seconds
                     setInterval(() => {
-                        this.updateServerStatus();
+                        self.updateServerStatus();
                     }, 2000);
                 }
             });

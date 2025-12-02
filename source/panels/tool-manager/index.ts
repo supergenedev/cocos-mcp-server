@@ -41,7 +41,7 @@ module.exports = Editor.Panel.define({
     methods: {
         async loadToolManagerState(this: any) {
             try {
-                this.toolManagerState = await Editor.Message.request('cocos-mcp-server', 'getToolManagerState');
+                this.toolManagerState = await Editor.Message.request('cocos-mcp-server', 'get-tool-manager-state');
                 this.currentConfiguration = this.toolManagerState.currentConfiguration;
                 this.configurations = this.toolManagerState.configurations;
                 this.availableTools = this.toolManagerState.availableTools;
@@ -62,7 +62,7 @@ module.exports = Editor.Panel.define({
         updateConfigSelector(this: any) {
             const selector = this.$.configSelector;
             selector.innerHTML = '<option value="">选择配置...</option>';
-            
+
             this.configurations.forEach((config: any) => {
                 const option = document.createElement('option');
                 option.value = config.id;
@@ -76,7 +76,7 @@ module.exports = Editor.Panel.define({
 
         updateToolsDisplay(this: any) {
             const container = this.$.toolsContainer;
-            
+
             if (!this.currentConfiguration) {
                 container.innerHTML = `
                     <div class="empty-state">
@@ -96,21 +96,21 @@ module.exports = Editor.Panel.define({
             });
 
             container.innerHTML = '';
-            
+
             Object.entries(toolsByCategory).forEach(([category, tools]: [string, any]) => {
                 const categoryDiv = document.createElement('div');
                 categoryDiv.className = 'tool-category';
-                
+
                 const enabledCount = tools.filter((t: any) => t.enabled).length;
                 const totalCount = tools.length;
-                
+
                 categoryDiv.innerHTML = `
                     <div class="category-header">
                         <div class="category-name">${this.getCategoryDisplayName(category)}</div>
                         <div class="category-toggle">
                             <span>${enabledCount}/${totalCount}</span>
-                            <input type="checkbox" class="checkbox category-checkbox" 
-                                   data-category="${category}" 
+                            <input type="checkbox" class="checkbox category-checkbox"
+                                   data-category="${category}"
                                    ${enabledCount === totalCount ? 'checked' : ''}>
                         </div>
                     </div>
@@ -122,16 +122,16 @@ module.exports = Editor.Panel.define({
                                     <div class="tool-description">${tool.description}</div>
                                 </div>
                                 <div class="tool-toggle">
-                                    <input type="checkbox" class="checkbox tool-checkbox" 
-                                           data-category="${tool.category}" 
-                                           data-name="${tool.name}" 
+                                    <input type="checkbox" class="checkbox tool-checkbox"
+                                           data-category="${tool.category}"
+                                           data-name="${tool.name}"
                                            ${tool.enabled ? 'checked' : ''}>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
                 `;
-                
+
                 container.appendChild(categoryDiv);
             });
 
@@ -177,20 +177,20 @@ module.exports = Editor.Panel.define({
                     tool.enabled = enabled;
                 });
                 console.log(`Updated local category state: ${category} = ${enabled}`);
-                
+
                 // 立即更新UI
                 this.updateStatusBar();
                 this.updateCategoryCounts();
                 this.updateToolCheckboxes(category, enabled);
 
                 // 然后发送到后端
-                await Editor.Message.request('cocos-mcp-server', 'updateToolStatusBatch', 
+                await Editor.Message.request('cocos-mcp-server', 'update-tool-status-batch',
                     this.currentConfiguration.id, updates);
-                
+
             } catch (error) {
                 console.error('Failed to toggle category tools:', error);
                 this.showError('切换类别工具失败');
-                
+
                 // 如果后端更新失败，回滚本地状态
                 categoryTools.forEach((tool: any) => {
                     tool.enabled = !enabled;
@@ -208,7 +208,7 @@ module.exports = Editor.Panel.define({
             console.log(`Current config ID: ${this.currentConfiguration.id}`);
 
             // 先更新本地状态
-            const tool = this.currentConfiguration.tools.find((t: any) => 
+            const tool = this.currentConfiguration.tools.find((t: any) =>
                 t.category === category && t.name === name);
             if (!tool) {
                 console.error(`Tool not found: ${category}.${name}`);
@@ -218,21 +218,21 @@ module.exports = Editor.Panel.define({
             try {
                 tool.enabled = enabled;
                 console.log(`Updated local tool state: ${tool.name} = ${tool.enabled}`);
-                
+
                 // 立即更新UI（只更新统计信息，不重新渲染工具列表）
                 this.updateStatusBar();
                 this.updateCategoryCounts();
 
                 // 然后发送到后端
                 console.log(`Sending to backend: configId=${this.currentConfiguration.id}, category=${category}, name=${name}, enabled=${enabled}`);
-                const result = await Editor.Message.request('cocos-mcp-server', 'updateToolStatus', 
+                const result = await Editor.Message.request('cocos-mcp-server', 'update-tool-status',
                     this.currentConfiguration.id, category, name, enabled);
                 console.log('Backend response:', result);
-                
+
             } catch (error) {
                 console.error('Failed to update tool status:', error);
                 this.showError('更新工具状态失败');
-                
+
                 // 如果后端更新失败，回滚本地状态
                 tool.enabled = !enabled;
                 this.updateStatusBar();
@@ -268,13 +268,13 @@ module.exports = Editor.Panel.define({
                 const categoryTools = this.currentConfiguration.tools.filter((t: any) => t.category === category);
                 const enabledCount = categoryTools.filter((t: any) => t.enabled).length;
                 const totalCount = categoryTools.length;
-                
+
                 // 更新计数显示
                 const countSpan = checkbox.parentElement.querySelector('span');
                 if (countSpan) {
                     countSpan.textContent = `${enabledCount}/${totalCount}`;
                 }
-                
+
                 // 更新类别复选框状态
                 checkbox.checked = enabledCount === totalCount;
             });
@@ -324,12 +324,12 @@ module.exports = Editor.Panel.define({
 
             try {
                 if (this.editingConfig) {
-                    await Editor.Message.request('cocos-mcp-server', 'updateToolConfiguration', 
+                    await Editor.Message.request('cocos-mcp-server', 'update-tool-configuration',
                         this.editingConfig.id, { name, description });
                 } else {
-                    await Editor.Message.request('cocos-mcp-server', 'createToolConfiguration', name, description);
+                    await Editor.Message.request('cocos-mcp-server', 'create-tool-configuration', name, description);
                 }
-                
+
                 this.hideModal('configModal');
                 await this.loadToolManagerState();
             } catch (error) {
@@ -344,10 +344,10 @@ module.exports = Editor.Panel.define({
             const confirmed = await Editor.Dialog.warn('确认删除', {
                 detail: `确定要删除配置 "${this.currentConfiguration.name}" 吗？此操作不可撤销。`
             });
-            
+
             if (confirmed) {
                 try {
-                    await Editor.Message.request('cocos-mcp-server', 'deleteToolConfiguration', 
+                    await Editor.Message.request('cocos-mcp-server', 'delete-tool-configuration',
                         this.currentConfiguration.id);
                     await this.loadToolManagerState();
                 } catch (error) {
@@ -362,7 +362,7 @@ module.exports = Editor.Panel.define({
             if (!configId) return;
 
             try {
-                await Editor.Message.request('cocos-mcp-server', 'setCurrentToolConfiguration', configId);
+                await Editor.Message.request('cocos-mcp-server', 'set-current-tool-configuration', configId);
                 await this.loadToolManagerState();
             } catch (error) {
                 console.error('Failed to apply configuration:', error);
@@ -374,9 +374,9 @@ module.exports = Editor.Panel.define({
             if (!this.currentConfiguration) return;
 
             try {
-                const result = await Editor.Message.request('cocos-mcp-server', 'exportToolConfiguration', 
+                const result = await Editor.Message.request('cocos-mcp-server', 'export-tool-configuration',
                     this.currentConfiguration.id);
-                
+
                 Editor.Clipboard.write('text', result.configJson);
                 Editor.Dialog.info('导出成功', { detail: '配置已复制到剪贴板' });
             } catch (error) {
@@ -398,7 +398,7 @@ module.exports = Editor.Panel.define({
             }
 
             try {
-                await Editor.Message.request('cocos-mcp-server', 'importToolConfiguration', configJson);
+                await Editor.Message.request('cocos-mcp-server', 'import-tool-configuration', configJson);
                 this.hideModal('importModal');
                 await this.loadToolManagerState();
                 Editor.Dialog.info('导入成功', { detail: '配置已成功导入' });
@@ -425,19 +425,19 @@ module.exports = Editor.Panel.define({
                     tool.enabled = true;
                 });
                 console.log('Updated local state: all tools enabled');
-                
+
                 // 立即更新UI
                 this.updateStatusBar();
                 this.updateToolsDisplay();
 
                 // 然后发送到后端
-                await Editor.Message.request('cocos-mcp-server', 'updateToolStatusBatch', 
+                await Editor.Message.request('cocos-mcp-server', 'update-tool-status-batch',
                     this.currentConfiguration.id, updates);
-                
+
             } catch (error) {
                 console.error('Failed to select all tools:', error);
                 this.showError('全选工具失败');
-                
+
                 // 如果后端更新失败，回滚本地状态
                 this.currentConfiguration.tools.forEach((tool: any) => {
                     tool.enabled = false;
@@ -464,19 +464,19 @@ module.exports = Editor.Panel.define({
                     tool.enabled = false;
                 });
                 console.log('Updated local state: all tools disabled');
-                
+
                 // 立即更新UI
                 this.updateStatusBar();
                 this.updateToolsDisplay();
 
                 // 然后发送到后端
-                await Editor.Message.request('cocos-mcp-server', 'updateToolStatusBatch', 
+                await Editor.Message.request('cocos-mcp-server', 'update-tool-status-batch',
                     this.currentConfiguration.id, updates);
-                
+
             } catch (error) {
                 console.error('Failed to deselect all tools:', error);
                 this.showError('取消全选工具失败');
-                
+
                 // 如果后端更新失败，回滚本地状态
                 this.currentConfiguration.tools.forEach((tool: any) => {
                     tool.enabled = true;
@@ -526,13 +526,13 @@ module.exports = Editor.Panel.define({
 
             try {
                 // 确保当前配置已保存到后端
-                await Editor.Message.request('cocos-mcp-server', 'updateToolConfiguration', 
+                await Editor.Message.request('cocos-mcp-server', 'update-tool-configuration',
                     this.currentConfiguration.id, {
                         name: this.currentConfiguration.name,
                         description: this.currentConfiguration.description,
                         tools: this.currentConfiguration.tools
                     });
-                
+
                 Editor.Dialog.info('保存成功', { detail: '配置更改已保存' });
             } catch (error) {
                 console.error('Failed to save changes:', error);
@@ -582,4 +582,4 @@ module.exports = Editor.Panel.define({
     close() {
         // 面板关闭清理
     }
-} as any); 
+} as any);

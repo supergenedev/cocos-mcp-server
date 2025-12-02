@@ -21,6 +21,7 @@
         "@types/fs-extra": "^9.0.5",
         "@types/node": "^14.17.0",
         "@types/uuid": "^9.0.8",
+        "@types/vue": "^2.0.0",
         "typescript": "^4.5.5"
     },
     "panel": {
@@ -72,7 +73,7 @@
                     "updateSettings"
                 ]
             },
-            "getToolsList": {
+            "get-tools-list": {
                 "methods": [
                     "getToolsList"
                 ]
@@ -82,52 +83,52 @@
                     "getServerSettings"
                 ]
             },
-            "getToolManagerState": {
+            "get-tool-manager-state": {
                 "methods": [
                     "getToolManagerState"
                 ]
             },
-            "createToolConfiguration": {
+            "create-tool-configuration": {
                 "methods": [
                     "createToolConfiguration"
                 ]
             },
-            "updateToolConfiguration": {
+            "update-tool-configuration": {
                 "methods": [
                     "updateToolConfiguration"
                 ]
             },
-            "deleteToolConfiguration": {
+            "delete-tool-configuration": {
                 "methods": [
                     "deleteToolConfiguration"
                 ]
             },
-            "setCurrentToolConfiguration": {
+            "set-current-tool-configuration": {
                 "methods": [
                     "setCurrentToolConfiguration"
                 ]
             },
-            "updateToolStatus": {
+            "update-tool-status": {
                 "methods": [
                     "updateToolStatus"
                 ]
             },
-            "updateToolStatusBatch": {
+            "update-tool-status-batch": {
                 "methods": [
                     "updateToolStatusBatch"
                 ]
             },
-            "exportToolConfiguration": {
+            "export-tool-configuration": {
                 "methods": [
                     "exportToolConfiguration"
                 ]
             },
-            "importToolConfiguration": {
+            "import-tool-configuration": {
                 "methods": [
                     "importToolConfiguration"
                 ]
             },
-            "getEnabledTools": {
+            "get-enabled-tools": {
                 "methods": [
                     "getEnabledTools"
                 ]
