@@ -1,4 +1,9 @@
+/// <reference path="../types/editor-2x.d.ts" />
+
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
+import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class ServerTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
@@ -81,7 +86,22 @@ export class ServerTools implements ToolExecutor {
 
     private async queryServerIPList(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('server', 'query-ip-list').then((ipList: string[]) => {
+            try {
+                const interfaces = os.networkInterfaces();
+                const ipList: string[] = [];
+
+                // Extract IPv4 addresses from all network interfaces
+                Object.values(interfaces).forEach((addresses) => {
+                    if (addresses) {
+                        addresses.forEach((addr) => {
+                            // Only include IPv4 addresses that are not internal
+                            if (addr.family === 'IPv4' && !addr.internal) {
+                                ipList.push(addr.address);
+                            }
+                        });
+                    }
+                });
+
                 resolve({
                     success: true,
                     data: {
@@ -90,15 +110,37 @@ export class ServerTools implements ToolExecutor {
                         message: 'IP list retrieved successfully'
                     }
                 });
-            }).catch((err: Error) => {
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async querySortedServerIPList(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('server', 'query-sort-ip-list').then((sortedIPList: string[]) => {
+        return new Promise(async (resolve) => {
+            try {
+                const ipListResult = await this.queryServerIPList();
+
+                if (!ipListResult.success) {
+                    resolve({ success: false, error: ipListResult.error });
+                    return;
+                }
+
+                const ipList = ipListResult.data.ipList as string[];
+                const sortedIPList: string[] = [];
+
+                // Put localhost first if it exists
+                if (ipList.includes('127.0.0.1')) {
+                    sortedIPList.push('127.0.0.1');
+                }
+
+                // Add other IPs, excluding localhost
+                ipList.forEach((ip) => {
+                    if (ip !== '127.0.0.1') {
+                        sortedIPList.push(ip);
+                    }
+                });
+
                 resolve({
                     success: true,
                     data: {
@@ -107,25 +149,51 @@ export class ServerTools implements ToolExecutor {
                         message: 'Sorted IP list retrieved successfully'
                     }
                 });
-            }).catch((err: Error) => {
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async queryServerPort(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('server', 'query-port').then((port: number) => {
+            try {
+                // Read preview-port from settings/project.json
+                const projectJsonPath = path.join(Editor.Project.path, 'settings', 'project.json');
+
+                let port: number = 7456; // Default port for Cocos Creator preview server
+
+                if (fs.existsSync(projectJsonPath)) {
+                    try {
+                        const content = fs.readFileSync(projectJsonPath, 'utf8');
+                        const projectJson = JSON.parse(content);
+
+                        if (projectJson['preview-port'] !== null && projectJson['preview-port'] !== undefined) {
+                            port = projectJson['preview-port'];
+                        }
+                    } catch (parseErr: any) {
+                        // If JSON parsing fails, use default port
+                        resolve({
+                            success: true,
+                            data: {
+                                port: port,
+                                message: `Using default port ${port} (failed to parse project.json: ${parseErr.message})`
+                            }
+                        });
+                        return;
+                    }
+                }
+
                 resolve({
                     success: true,
                     data: {
                         port: port,
-                        message: `Editor server is running on port ${port}`
+                        message: `Editor server preview port: ${port}`
                     }
                 });
-            }).catch((err: Error) => {
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
@@ -133,9 +201,16 @@ export class ServerTools implements ToolExecutor {
         return new Promise(async (resolve) => {
             try {
                 // Gather comprehensive server information
-                const [ipListResult, portResult] = await Promise.allSettled([
-                    this.queryServerIPList(),
-                    this.queryServerPort()
+                // Use Promise.all with catch to handle errors individually
+                const [ipListResult, portResult] = await Promise.all([
+                    this.queryServerIPList().catch((err: any) => ({
+                        success: false,
+                        error: err.message
+                    } as ToolResponse)),
+                    this.queryServerPort().catch((err: any) => ({
+                        success: false,
+                        error: err.message
+                    } as ToolResponse))
                 ]);
 
                 const status: any = {
@@ -143,20 +218,20 @@ export class ServerTools implements ToolExecutor {
                     serverRunning: true
                 };
 
-                if (ipListResult.status === 'fulfilled' && ipListResult.value.success) {
-                    status.availableIPs = ipListResult.value.data.ipList;
-                    status.ipCount = ipListResult.value.data.count;
+                if (ipListResult.success) {
+                    status.availableIPs = ipListResult.data.ipList;
+                    status.ipCount = ipListResult.data.count;
                 } else {
                     status.availableIPs = [];
                     status.ipCount = 0;
-                    status.ipError = ipListResult.status === 'rejected' ? ipListResult.reason : ipListResult.value.error;
+                    status.ipError = ipListResult.error;
                 }
 
-                if (portResult.status === 'fulfilled' && portResult.value.success) {
-                    status.port = portResult.value.data.port;
+                if (portResult.success) {
+                    status.port = portResult.data.port;
                 } else {
                     status.port = null;
-                    status.portError = portResult.status === 'rejected' ? portResult.reason : portResult.value.error;
+                    status.portError = portResult.error;
                 }
 
                 // Add additional server info
@@ -182,18 +257,19 @@ export class ServerTools implements ToolExecutor {
     private async checkServerConnectivity(timeout: number = 5000): Promise<ToolResponse> {
         return new Promise(async (resolve) => {
             const startTime = Date.now();
-            
+
             try {
-                // Test basic Editor API connectivity
-                const testPromise = Editor.Message.request('server', 'query-port');
-                const timeoutPromise = new Promise((_, reject) => {
+                // Test connectivity by checking if we can query server port
+                // Use timeout to ensure we don't wait too long
+                const testPromise = this.queryServerPort();
+                const timeoutPromise = new Promise<never>((_, reject) => {
                     setTimeout(() => reject(new Error('Connection timeout')), timeout);
                 });
 
                 await Promise.race([testPromise, timeoutPromise]);
-                
+
                 const responseTime = Date.now() - startTime;
-                
+
                 resolve({
                     success: true,
                     data: {
@@ -206,7 +282,7 @@ export class ServerTools implements ToolExecutor {
 
             } catch (err: any) {
                 const responseTime = Date.now() - startTime;
-                
+
                 resolve({
                     success: false,
                     data: {
@@ -224,9 +300,8 @@ export class ServerTools implements ToolExecutor {
         return new Promise(async (resolve) => {
             try {
                 // Get network interfaces using Node.js os module
-                const os = require('os');
                 const interfaces = os.networkInterfaces();
-                
+
                 const networkInfo = Object.entries(interfaces).map(([name, addresses]: [string, any]) => ({
                     name: name,
                     addresses: addresses.map((addr: any) => ({
@@ -239,7 +314,7 @@ export class ServerTools implements ToolExecutor {
 
                 // Also try to get server IPs for comparison
                 const serverIPResult = await this.queryServerIPList();
-                
+
                 resolve({
                     success: true,
                     data: {
