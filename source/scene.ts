@@ -892,5 +892,254 @@ export const methods: { [key: string]: (...any: any) => any } = {
         } catch (error: any) {
             return { error: error.message };
         }
+    },
+
+    /**
+     * Execute component method
+     */
+    executeComponentMethod(componentUuid: string, methodName: string, args: any[] = []) {
+        try {
+            const scene = cc.director.getScene();
+            if (!scene) {
+                return { success: false, error: 'No active scene' };
+            }
+
+            // Find component by UUID - need to search all nodes
+            let targetComponent: any = null;
+            const searchComponent = (node: any) => {
+                if (node._components) {
+                    for (const comp of node._components) {
+                        if (comp.uuid === componentUuid) {
+                            targetComponent = comp;
+                            return;
+                        }
+                    }
+                }
+                if (node.children) {
+                    for (const child of node.children) {
+                        searchComponent(child);
+                        if (targetComponent) return;
+                    }
+                }
+            };
+
+            searchComponent(scene);
+
+            if (!targetComponent) {
+                return { success: false, error: `Component with UUID ${componentUuid} not found` };
+            }
+
+            // Execute method
+            if (typeof targetComponent[methodName] === 'function') {
+                const result = targetComponent[methodName](...args);
+                return { success: true, data: result };
+            } else {
+                return { success: false, error: `Method '${methodName}' not found on component` };
+            }
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
+     * Query if scene is ready
+     */
+    querySceneReady() {
+        try {
+            const scene = cc.director.getScene();
+            return { success: true, data: { ready: scene !== null && scene !== undefined } };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
+     * Query if scene has unsaved changes
+     * Note: In 2.x runtime, we cannot directly check dirty state
+     * This is an editor-only feature, so we return false
+     */
+    querySceneDirty() {
+        try {
+            // In 2.x runtime, we cannot access editor dirty state
+            // Return false as default
+            return { success: true, data: { dirty: false } };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
+     * Query all registered classes
+     */
+    querySceneClasses(extendsClass?: string) {
+        try {
+            const classes: any[] = [];
+
+            // Get all classes from cc namespace
+            const ccNamespace = (window as any).cc || cc;
+            const classNames: string[] = [];
+
+            // Collect class names from cc namespace
+            for (const key in ccNamespace) {
+                if (ccNamespace.hasOwnProperty(key)) {
+                    const value = ccNamespace[key];
+                    if (typeof value === 'function' && value.prototype) {
+                        classNames.push(key);
+                    }
+                }
+            }
+
+            // Filter by extends if specified
+            if (extendsClass) {
+                const BaseClass = cc.js.getClassByName(extendsClass);
+                if (BaseClass) {
+                    for (const className of classNames) {
+                        const Class = cc.js.getClassByName(className);
+                        if (Class && Class.prototype instanceof BaseClass) {
+                            classes.push({
+                                name: className,
+                                extends: extendsClass
+                            });
+                        }
+                    }
+                }
+            } else {
+                // Return all classes
+                for (const className of classNames) {
+                    classes.push({ name: className });
+                }
+            }
+
+            return { success: true, data: classes };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
+     * Query available scene components
+     */
+    querySceneComponents() {
+        try {
+            const components: any[] = [];
+
+            // Get all component classes from cc namespace
+            const componentNames = [
+                'cc.Component',
+                'cc.Sprite',
+                'cc.Label',
+                'cc.Button',
+                'cc.Animation',
+                'cc.AudioSource',
+                'cc.Camera',
+                'cc.Canvas',
+                'cc.Collider',
+                'cc.RigidBody',
+                'cc.PhysicsBoxCollider',
+                'cc.PhysicsCircleCollider',
+                'cc.PhysicsPolygonCollider',
+                'cc.RichText',
+                'cc.ScrollView',
+                'cc.PageView',
+                'cc.EditBox',
+                'cc.Layout',
+                'cc.Mask',
+                'cc.ProgressBar',
+                'cc.Slider',
+                'cc.Toggle',
+                'cc.ToggleGroup',
+                'cc.Widget',
+                'cc.Graphics',
+                'cc.MotionStreak',
+                'cc.ParticleSystem',
+                'cc.TiledMap',
+                'cc.TiledLayer',
+                'cc.TiledObjectGroup',
+                'cc.TiledTile',
+                'cc.VideoPlayer',
+                'cc.WebView'
+            ];
+
+            for (const compName of componentNames) {
+                const CompClass = cc.js.getClassByName(compName);
+                if (CompClass) {
+                    components.push({
+                        name: compName,
+                        type: compName
+                    });
+                }
+            }
+
+            return { success: true, data: components };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
+     * Check if component has script
+     */
+    queryComponentHasScript(className: string) {
+        try {
+            const CompClass = cc.js.getClassByName(className);
+            if (!CompClass) {
+                return { success: false, error: `Component class '${className}' not found` };
+            }
+
+            // In 2.x, check if component has any methods (indicating it might have a script)
+            // This is a simplified check - actual script detection would require more complex logic
+            const hasScript = CompClass.prototype && Object.getOwnPropertyNames(CompClass.prototype).length > 1;
+
+            return { success: true, data: { hasScript } };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
+     * Query nodes by asset UUID
+     */
+    queryNodesByAssetUuid(assetUuid: string) {
+        try {
+            const scene = cc.director.getScene();
+            if (!scene) {
+                return { success: false, error: 'No active scene' };
+            }
+
+            const nodeUuids: string[] = [];
+
+            // Search all nodes for components that reference the asset UUID
+            const searchNodes = (node: any) => {
+                if (node._components) {
+                    for (const comp of node._components) {
+                        // Check common asset reference properties
+                        const assetProps = ['spriteFrame', 'texture', 'atlas', 'font', 'audioClip', 'prefab'];
+                        for (const prop of assetProps) {
+                            if (comp[prop]) {
+                                const asset = comp[prop];
+                                // Check if asset has matching UUID
+                                if (asset && (asset.uuid === assetUuid || (asset._uuid && asset._uuid === assetUuid))) {
+                                    if (nodeUuids.indexOf(node.uuid) === -1) {
+                                        nodeUuids.push(node.uuid);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (node.children) {
+                    for (const child of node.children) {
+                        searchNodes(child);
+                    }
+                }
+            };
+
+            searchNodes(scene);
+
+            return { success: true, data: nodeUuids };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
     }
 };

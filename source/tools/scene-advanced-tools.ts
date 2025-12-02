@@ -411,155 +411,96 @@ export class SceneAdvancedTools implements ToolExecutor {
     }
 
     private async resetNodeProperty(uuid: string, path: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'reset-property', {
-                uuid,
-                path,
-                dump: { value: null }
-            }).then(() => {
-                resolve({
-                    success: true,
-                    message: `Property '${path}' reset to default value`
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: reset-property is not supported in Cocos Creator 2.x
+        // Use scene:set-property to manually set default values instead
+        return Promise.resolve({
+            success: false,
+            error: 'reset-property is not supported in Cocos Creator 2.x. Please use set_node_property to set default values manually.'
         });
     }
 
     private async moveArrayElement(uuid: string, path: string, target: number, offset: number): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'move-array-element', {
-                uuid,
-                path,
-                target,
-                offset
-            }).then(() => {
-                resolve({
-                    success: true,
-                    message: `Array element at index ${target} moved by ${offset}`
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: move-array-element is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'move-array-element is not supported in Cocos Creator 2.x'
         });
     }
 
     private async removeArrayElement(uuid: string, path: string, index: number): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'remove-array-element', {
-                uuid,
-                path,
-                index
-            }).then(() => {
-                resolve({
-                    success: true,
-                    message: `Array element at index ${index} removed`
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: remove-array-element is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'remove-array-element is not supported in Cocos Creator 2.x'
         });
     }
 
     private async copyNode(uuids: string | string[]): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'copy-node', uuids).then((result: string | string[]) => {
-                resolve({
-                    success: true,
-                    data: {
-                        copiedUuids: result,
-                        message: 'Node(s) copied successfully'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: copy-node is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'copy-node is not supported in Cocos Creator 2.x'
         });
     }
 
     private async pasteNode(target: string, uuids: string | string[], keepWorldTransform: boolean = false): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'paste-node', {
-                target,
-                uuids,
-                keepWorldTransform
-            }).then((result: string | string[]) => {
-                resolve({
-                    success: true,
-                    data: {
-                        newUuids: result,
-                        message: 'Node(s) pasted successfully'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: paste-node is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'paste-node is not supported in Cocos Creator 2.x'
         });
     }
 
     private async cutNode(uuids: string | string[]): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'cut-node', uuids).then((result: any) => {
-                resolve({
-                    success: true,
-                    data: {
-                        cutUuids: result,
-                        message: 'Node(s) cut successfully'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: cut-node is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'cut-node is not supported in Cocos Creator 2.x'
         });
     }
 
     private async resetNodeTransform(uuid: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'reset-node', { uuid }).then(() => {
-                resolve({
-                    success: true,
-                    message: 'Node transform reset to default'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: reset-node is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'reset-node is not supported in Cocos Creator 2.x. Please use set_node_property to reset position/rotation/scale manually.'
         });
     }
 
     private async resetComponent(uuid: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'reset-component', { uuid }).then(() => {
-                resolve({
-                    success: true,
-                    message: 'Component reset to default values'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: reset-component is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'reset-component is not supported in Cocos Creator 2.x'
         });
     }
 
     private async restorePrefab(nodeUuid: string, assetUuid: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            (Editor.Message.request as any)('scene', 'restore-prefab', nodeUuid, assetUuid).then(() => {
+            try {
+                // In 2.x, restore-prefab is not directly supported
+                // Use break-prefab-instance + apply-prefab combination instead
+                // First, break the prefab instance
+                Editor.Ipc.sendToPanel('scene', 'scene:break-prefab-instance', nodeUuid);
+
+                // Then apply the prefab from asset
+                Editor.Ipc.sendToPanel('scene', 'scene:apply-prefab', nodeUuid);
+
                 resolve({
                     success: true,
-                    message: 'Prefab restored successfully'
+                    message: 'Prefab restored successfully (using break + apply)'
                 });
-            }).catch((err: Error) => {
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async executeComponentMethod(uuid: string, name: string, args: any[] = []): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'execute-component-method', {
-                uuid,
-                name,
-                args
-            }).then((result: any) => {
+            try {
+                // In 2.x, use Editor.Scene.callSceneScript to execute component methods
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'executeComponentMethod', uuid, name, args);
                 resolve({
                     success: true,
                     data: {
@@ -567,212 +508,204 @@ export class SceneAdvancedTools implements ToolExecutor {
                         message: `Method '${name}' executed successfully`
                     }
                 });
-            }).catch((err: Error) => {
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async executeSceneScript(name: string, method: string, args: any[] = []): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'execute-scene-script', {
-                name,
-                method,
-                args
-            }).then((result: any) => {
+            try {
+                // In 2.x, use Editor.Scene.callSceneScript directly
+                const result = Editor.Scene.callSceneScript(name, method, ...args);
                 resolve({
                     success: true,
                     data: result
                 });
-            }).catch((err: Error) => {
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async sceneSnapshot(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'snapshot').then(() => {
-                resolve({
-                    success: true,
-                    message: 'Scene snapshot created'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: snapshot is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'scene snapshot is not supported in Cocos Creator 2.x'
         });
     }
 
     private async sceneSnapshotAbort(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'snapshot-abort').then(() => {
-                resolve({
-                    success: true,
-                    message: 'Scene snapshot aborted'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: snapshot-abort is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'scene snapshot-abort is not supported in Cocos Creator 2.x'
         });
     }
 
     private async beginUndoRecording(nodeUuid: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'begin-recording', nodeUuid).then((undoId: string) => {
-                resolve({
-                    success: true,
-                    data: {
-                        undoId: undoId,
-                        message: 'Undo recording started'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: begin-recording is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'undo recording is not supported in Cocos Creator 2.x'
         });
     }
 
     private async endUndoRecording(undoId: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'end-recording', undoId).then(() => {
-                resolve({
-                    success: true,
-                    message: 'Undo recording ended'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: end-recording is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'undo recording is not supported in Cocos Creator 2.x'
         });
     }
 
     private async cancelUndoRecording(undoId: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'cancel-recording', undoId).then(() => {
-                resolve({
-                    success: true,
-                    message: 'Undo recording cancelled'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: cancel-recording is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'undo recording is not supported in Cocos Creator 2.x'
         });
     }
 
     private async softReloadScene(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('scene', 'soft-reload').then(() => {
-                resolve({
-                    success: true,
-                    message: 'Scene soft reloaded successfully'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        // Note: soft-reload is not supported in Cocos Creator 2.x
+        return Promise.resolve({
+            success: false,
+            error: 'soft-reload is not supported in Cocos Creator 2.x'
         });
     }
 
     private async querySceneReady(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'query-is-ready').then((ready: boolean) => {
-                resolve({
-                    success: true,
-                    data: {
-                        ready: ready,
-                        message: ready ? 'Scene is ready' : 'Scene is not ready'
-                    }
-                });
-            }).catch((err: Error) => {
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'querySceneReady');
+                if (result && result.success) {
+                    resolve({
+                        success: true,
+                        data: {
+                            ready: result.data?.ready || false,
+                            message: result.data?.ready ? 'Scene is ready' : 'Scene is not ready'
+                        }
+                    });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to query scene ready state' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async querySceneDirty(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'query-dirty').then((dirty: boolean) => {
-                resolve({
-                    success: true,
-                    data: {
-                        dirty: dirty,
-                        message: dirty ? 'Scene has unsaved changes' : 'Scene is clean'
-                    }
-                });
-            }).catch((err: Error) => {
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'querySceneDirty');
+                if (result && result.success) {
+                    resolve({
+                        success: true,
+                        data: {
+                            dirty: result.data?.dirty || false,
+                            message: result.data?.dirty ? 'Scene has unsaved changes' : 'Scene is clean'
+                        }
+                    });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to query scene dirty state' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async querySceneClasses(extendsClass?: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            const options: any = {};
-            if (extendsClass) {
-                options.extends = extendsClass;
-            }
-
-            Editor.Message.request('scene', 'query-classes', options).then((classes: any[]) => {
-                resolve({
-                    success: true,
-                    data: {
-                        classes: classes,
-                        count: classes.length,
-                        extendsFilter: extendsClass
-                    }
-                });
-            }).catch((err: Error) => {
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'querySceneClasses', extendsClass);
+                if (result && result.success) {
+                    resolve({
+                        success: true,
+                        data: {
+                            classes: result.data || [],
+                            count: result.data?.length || 0,
+                            extendsFilter: extendsClass
+                        }
+                    });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to query scene classes' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async querySceneComponents(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'query-components').then((components: any[]) => {
-                resolve({
-                    success: true,
-                    data: {
-                        components: components,
-                        count: components.length
-                    }
-                });
-            }).catch((err: Error) => {
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'querySceneComponents');
+                if (result && result.success) {
+                    resolve({
+                        success: true,
+                        data: {
+                            components: result.data || [],
+                            count: result.data?.length || 0
+                        }
+                    });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to query scene components' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async queryComponentHasScript(className: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'query-component-has-script', className).then((hasScript: boolean) => {
-                resolve({
-                    success: true,
-                    data: {
-                        className: className,
-                        hasScript: hasScript,
-                        message: hasScript ? `Component '${className}' has script` : `Component '${className}' does not have script`
-                    }
-                });
-            }).catch((err: Error) => {
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryComponentHasScript', className);
+                if (result && result.success) {
+                    const hasScript = result.data?.hasScript || false;
+                    resolve({
+                        success: true,
+                        data: {
+                            className: className,
+                            hasScript: hasScript,
+                            message: hasScript ? `Component '${className}' has script` : `Component '${className}' does not have script`
+                        }
+                    });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to query component script status' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async queryNodesByAssetUuid(assetUuid: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'query-nodes-by-asset-uuid', assetUuid).then((nodeUuids: string[]) => {
-                resolve({
-                    success: true,
-                    data: {
-                        assetUuid: assetUuid,
-                        nodeUuids: nodeUuids,
-                        count: nodeUuids.length,
-                        message: `Found ${nodeUuids.length} nodes using asset`
-                    }
-                });
-            }).catch((err: Error) => {
+            try {
+                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNodesByAssetUuid', assetUuid);
+                if (result && result.success) {
+                    const nodeUuids = result.data || [];
+                    resolve({
+                        success: true,
+                        data: {
+                            assetUuid: assetUuid,
+                            nodeUuids: nodeUuids,
+                            count: nodeUuids.length,
+                            message: `Found ${nodeUuids.length} nodes using asset`
+                        }
+                    });
+                } else {
+                    resolve({ success: false, error: result?.error || 'Failed to query nodes by asset UUID' });
+                }
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 }

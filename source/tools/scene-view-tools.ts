@@ -225,6 +225,12 @@ export class SceneViewTools implements ToolExecutor {
     }
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
+        // 모든 기능 미지원 처리
+        return {
+            success: false,
+            error: `Tool '${toolName}' is not supported`
+        };
+        /*
         switch (toolName) {
             case 'change_gizmo_tool':
                 return await this.changeGizmoTool(args.name);
@@ -269,8 +275,10 @@ export class SceneViewTools implements ToolExecutor {
             default:
                 throw new Error(`Unknown tool: ${toolName}`);
         }
+        */
     }
 
+    /*
     private async changeGizmoTool(name: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
             Editor.Message.request('scene', 'change-gizmo-tool', name).then(() => {
@@ -627,4 +635,5 @@ export class SceneViewTools implements ToolExecutor {
             }
         });
     }
+    */
 }
