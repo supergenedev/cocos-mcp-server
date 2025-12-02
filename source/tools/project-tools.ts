@@ -448,48 +448,98 @@ export class ProjectTools implements ToolExecutor {
         }
     }
 
+    /**
+     * Promise wrapper for Editor.assetdb.queryInfoByUuid (2.x API is callback-based)
+     */
+    private queryAssetInfoByUuid(uuid: string): Promise<any> {
+        return new Promise((resolve, reject) => {
+            Editor.assetdb.queryInfoByUuid(uuid, (err: Error | null, info: any) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(info);
+                }
+            });
+        });
+    }
+
+    /**
+     * Promise wrapper for Editor.assetdb.queryUuidByUrl (2.x API is callback-based)
+     */
+    private queryUuidByUrl(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            Editor.assetdb.queryUuidByUrl(url, (err: Error | null, uuid: string) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(uuid);
+                }
+            });
+        });
+    }
+
+    /**
+     * Promise wrapper for Editor.assetdb.queryUrlByUuid (2.x API is callback-based)
+     */
+    private queryUrlByUuid(uuid: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            Editor.assetdb.queryUrlByUuid(uuid, (err: Error | null, url: string) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(url);
+                }
+            });
+        });
+    }
+
+    /**
+     * Promise wrapper for Editor.assetdb.queryPathByUrl (2.x API is callback-based)
+     */
+    private queryPathByUrl(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            Editor.assetdb.queryPathByUrl(url, (err: Error | null, path: string) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(path);
+                }
+            });
+        });
+    }
+
+    /**
+     * Get asset info by URL (converts URL to UUID first)
+     */
+    private async queryAssetInfoByUrl(url: string): Promise<any> {
+        const uuid = await this.queryUuidByUrl(url);
+        return await this.queryAssetInfoByUuid(uuid);
+    }
+
     private async runProject(platform: string = 'browser'): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            const previewConfig = {
-                platform: platform,
-                scenes: [] // Will use current scene
-            };
-
             // Note: Preview module is not documented in official API
             // Using fallback approach - open build panel as alternative
-            Editor.Message.request('builder', 'open').then(() => {
-                resolve({
-                    success: true,
-                    message: `Build panel opened. Preview functionality requires manual setup.`
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            Editor.Ipc.sendToMain('builder:open');
+            resolve({
+                success: true,
+                message: `Build panel opened. Preview functionality requires manual setup.`
             });
         });
     }
 
     private async buildProject(args: any): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            const buildOptions = {
-                platform: args.platform,
-                debug: args.debug !== false,
-                sourceMaps: args.debug !== false,
-                buildPath: `build/${args.platform}`
-            };
-
             // Note: Builder module only supports 'open' and 'query-worker-ready'
             // Building requires manual interaction through the build panel
-            Editor.Message.request('builder', 'open').then(() => {
-                resolve({
-                    success: true,
-                    message: `Build panel opened for ${args.platform}. Please configure and start build manually.`,
-                    data: {
-                        platform: args.platform,
-                        instruction: "Use the build panel to configure and start the build process"
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            Editor.Ipc.sendToMain('builder:open');
+            resolve({
+                success: true,
+                message: `Build panel opened for ${args.platform}. Please configure and start build manually.`,
+                data: {
+                    platform: args.platform,
+                    instruction: "Use the build panel to configure and start the build process"
+                }
             });
         });
     }
@@ -499,63 +549,44 @@ export class ProjectTools implements ToolExecutor {
             const info: ProjectInfo = {
                 name: Editor.Project.name,
                 path: Editor.Project.path,
-                uuid: Editor.Project.uuid,
+                uuid: Editor.Project.id,
                 version: (Editor.Project as any).version || '1.0.0',
                 cocosVersion: (Editor as any).versions?.cocos || 'Unknown'
             };
 
-            // Note: 'query-info' API doesn't exist, using 'query-config' instead
-            Editor.Message.request('project', 'query-config', 'project').then((additionalInfo: any) => {
-                if (additionalInfo) {
-                    Object.assign(info, { config: additionalInfo });
-                }
-                resolve({ success: true, data: info });
-            }).catch(() => {
-                // Return basic info even if detailed query fails
-                resolve({ success: true, data: info });
-            });
+            // Note: query-config API is not available in 2.x
+            resolve({ success: true, data: info });
         });
     }
 
     private async getProjectSettings(category: string = 'general'): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 使用正确的 project API 查询项目配置
-            const configMap: Record<string, string> = {
-                general: 'project',
-                physics: 'physics',
-                render: 'render',
-                assets: 'asset-db'
-            };
-
-            const configName = configMap[category] || 'project';
-
-            Editor.Message.request('project', 'query-config', configName).then((settings: any) => {
-                resolve({
-                    success: true,
-                    data: {
-                        category: category,
-                        config: settings,
-                        message: `${category} settings retrieved successfully`
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            // Note: query-config API is not available in Cocos Creator 2.x
+            resolve({
+                success: false,
+                error: `query-config API is not available in Cocos Creator 2.x. Category '${category}' settings cannot be retrieved programmatically.`,
+                data: {
+                    category: category,
+                    limitation: 'Project settings query is not supported in 2.x MCP plugin environment',
+                    suggestion: 'Please access project settings manually through the editor UI'
+                }
             });
         });
     }
 
     private async refreshAssets(folder?: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 使用正确的 asset-db API 刷新资源
             const targetPath = folder || 'db://assets';
 
-            Editor.Message.request('asset-db', 'refresh-asset', targetPath).then(() => {
-                resolve({
-                    success: true,
-                    message: `Assets refreshed in: ${targetPath}`
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            Editor.assetdb.refresh(targetPath, (err: Error | null) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                } else {
+                    resolve({
+                        success: true,
+                        message: `Assets refreshed in: ${targetPath}`
+                    });
+                }
             });
         });
     }
@@ -571,35 +602,46 @@ export class ProjectTools implements ToolExecutor {
             const targetPath = targetFolder.startsWith('db://') ?
                 targetFolder : `db://assets/${targetFolder}`;
 
-            Editor.Message.request('asset-db', 'import-asset', sourcePath, `${targetPath}/${fileName}`).then((result: any) => {
-                resolve({
-                    success: true,
-                    data: {
-                        uuid: result.uuid,
-                        path: result.url,
-                        message: `Asset imported: ${fileName}`
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            Editor.assetdb.import([sourcePath], `${targetPath}/${fileName}`, true, (err: Error | null) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                } else {
+                    // Query the imported asset info
+                    this.queryUuidByUrl(`${targetPath}/${fileName}`).then((uuid: string) => {
+                        resolve({
+                            success: true,
+                            data: {
+                                uuid: uuid,
+                                path: `${targetPath}/${fileName}`,
+                                message: `Asset imported: ${fileName}`
+                            }
+                        });
+                    }).catch(() => {
+                        resolve({
+                            success: true,
+                            data: {
+                                path: `${targetPath}/${fileName}`,
+                                message: `Asset imported: ${fileName}`
+                            }
+                        });
+                    });
+                }
             });
         });
     }
 
     private async getAssetInfo(assetPath: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'query-asset-info', assetPath).then((assetInfo: any) => {
-                if (!assetInfo) {
-                    throw new Error('Asset not found');
-                }
+        return new Promise(async (resolve) => {
+            try {
+                const assetInfo = await this.queryAssetInfoByUrl(assetPath);
 
                 const info: AssetInfo = {
                     name: assetInfo.name,
                     uuid: assetInfo.uuid,
                     path: assetInfo.url,
                     type: assetInfo.type,
-                    size: assetInfo.size,
-                    isDirectory: assetInfo.isDirectory
+                    size: assetInfo.size || 0,
+                    isDirectory: assetInfo.isDirectory || false
                 };
 
                 if (assetInfo.meta) {
@@ -610,9 +652,9 @@ export class ProjectTools implements ToolExecutor {
                 }
 
                 resolve({ success: true, data: info });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+            } catch (err: any) {
+                resolve({ success: false, error: err.message || 'Asset not found' });
+            }
         });
     }
 
@@ -639,8 +681,27 @@ export class ProjectTools implements ToolExecutor {
                 }
             }
 
-            // Note: query-assets API parameters corrected based on documentation
-            Editor.Message.request('asset-db', 'query-assets', { pattern: pattern }).then((results: any[]) => {
+            // Map type string to asset type array for 2.x API
+            const assetTypeMap: Record<string, string | string[]> = {
+                'all': '',
+                'scene': 'scene',
+                'prefab': 'prefab',
+                'script': ['script', 'js'],
+                'texture': ['image', 'texture'],
+                'material': 'material',
+                'mesh': ['mesh', 'model'],
+                'audio': ['audio', 'sound'],
+                'animation': ['animation', 'anim']
+            };
+
+            const assetType = assetTypeMap[type] || '';
+
+            Editor.assetdb.queryAssets(pattern, assetType, (err: Error | null, results: any[]) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                    return;
+                }
+
                 const assets = results.map(asset => ({
                     name: asset.name,
                     uuid: asset.uuid,
@@ -659,62 +720,51 @@ export class ProjectTools implements ToolExecutor {
                         assets: assets
                     }
                 });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
             });
         });
     }
 
     private async getBuildSettings(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 检查构建器是否准备就绪
-            Editor.Message.request('builder', 'query-worker-ready').then((ready: boolean) => {
-                resolve({
-                    success: true,
-                    data: {
-                        builderReady: ready,
-                        message: 'Build settings are limited in MCP plugin environment',
-                        availableActions: [
-                            'Open build panel with open_build_panel',
-                            'Check builder status with check_builder_status',
-                            'Start preview server with start_preview_server',
-                            'Stop preview server with stop_preview_server'
-                        ],
-                        limitation: 'Full build configuration requires direct Editor UI access'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            // Note: query-worker-ready API is not available in Cocos Creator 2.x
+            resolve({
+                success: true,
+                data: {
+                    builderReady: false,
+                    message: 'Build settings are limited in MCP plugin environment',
+                    availableActions: [
+                        'Open build panel with open_build_panel',
+                        'Check builder status with check_builder_status',
+                        'Start preview server with start_preview_server',
+                        'Stop preview server with stop_preview_server'
+                    ],
+                    limitation: 'Full build configuration requires direct Editor UI access. Builder status check is not available in 2.x'
+                }
             });
         });
     }
 
     private async openBuildPanel(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('builder', 'open').then(() => {
-                resolve({
-                    success: true,
-                    message: 'Build panel opened successfully'
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            Editor.Ipc.sendToMain('builder:open');
+            resolve({
+                success: true,
+                message: 'Build panel opened successfully'
             });
         });
     }
 
     private async checkBuilderStatus(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('builder', 'query-worker-ready').then((ready: boolean) => {
-                resolve({
-                    success: true,
-                    data: {
-                        ready: ready,
-                        status: ready ? 'Builder worker is ready' : 'Builder worker is not ready',
-                        message: 'Builder status checked successfully'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            // Note: query-worker-ready API is not available in Cocos Creator 2.x
+            resolve({
+                success: true,
+                data: {
+                    ready: false,
+                    status: 'Builder worker status check is not available in 2.x',
+                    message: 'Builder status check is limited in 2.x MCP plugin environment',
+                    limitation: 'query-worker-ready API is not supported in Cocos Creator 2.x'
+                }
             });
         });
     }
@@ -741,21 +791,29 @@ export class ProjectTools implements ToolExecutor {
 
     private async createAsset(url: string, content: string | null = null, overwrite: boolean = false): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            const options = {
-                overwrite: overwrite,
-                rename: !overwrite
-            };
-
-            Editor.Message.request('asset-db', 'create-asset', url, content, options).then((result: any) => {
-                if (result && result.uuid) {
-                    resolve({
-                        success: true,
-                        data: {
-                            uuid: result.uuid,
-                            url: result.url,
-                            message: content === null ? 'Folder created successfully' : 'File created successfully'
-                        }
-                    });
+            // Note: 2.x create API doesn't support overwrite option directly
+            // If overwrite is needed, we should delete first or handle error
+            Editor.assetdb.create(url, content, (err: Error | null, result: any) => {
+                if (err) {
+                    if (overwrite && err.message && err.message.includes('already exists')) {
+                        // Try to delete and recreate if overwrite is requested
+                        Editor.assetdb.delete([url]);
+                        Editor.assetdb.create(url, content, (err2: Error | null, result2: any) => {
+                            if (err2) {
+                                resolve({ success: false, error: err2.message });
+                            } else {
+                                resolve({
+                                    success: true,
+                                    data: {
+                                        url: url,
+                                        message: content === null ? 'Folder created successfully' : 'File created successfully'
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        resolve({ success: false, error: err.message });
+                    }
                 } else {
                     resolve({
                         success: true,
@@ -765,197 +823,202 @@ export class ProjectTools implements ToolExecutor {
                         }
                     });
                 }
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
             });
         });
     }
 
     private async copyAsset(source: string, target: string, overwrite: boolean = false): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            const options = {
-                overwrite: overwrite,
-                rename: !overwrite
-            };
-
-            Editor.Message.request('asset-db', 'copy-asset', source, target, options).then((result: any) => {
-                if (result && result.uuid) {
-                    resolve({
-                        success: true,
-                        data: {
-                            uuid: result.uuid,
-                            url: result.url,
-                            message: 'Asset copied successfully'
-                        }
-                    });
-                } else {
-                    resolve({
-                        success: true,
-                        data: {
-                            source: source,
-                            target: target,
-                            message: 'Asset copied successfully'
-                        }
-                    });
+        return new Promise(async (resolve) => {
+            try {
+                // 2.x doesn't have direct copy API, so we need to read and create
+                const sourcePath = await this.queryPathByUrl(source);
+                if (!fs.existsSync(sourcePath)) {
+                    resolve({ success: false, error: 'Source asset not found' });
+                    return;
                 }
-            }).catch((err: Error) => {
+
+                const content = fs.readFileSync(sourcePath, 'utf8');
+
+                // Check if target exists
+                try {
+                    await this.queryUuidByUrl(target);
+                    if (!overwrite) {
+                        resolve({ success: false, error: 'Target asset already exists. Use overwrite=true to replace.' });
+                        return;
+                    }
+                    // Delete existing target
+                    Editor.assetdb.delete([target]);
+                } catch {
+                    // Target doesn't exist, proceed
+                }
+
+                Editor.assetdb.create(target, content, (err: Error | null) => {
+                    if (err) {
+                        resolve({ success: false, error: err.message });
+                    } else {
+                        resolve({
+                            success: true,
+                            data: {
+                                source: source,
+                                target: target,
+                                message: 'Asset copied successfully'
+                            }
+                        });
+                    }
+                });
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async moveAsset(source: string, target: string, overwrite: boolean = false): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            const options = {
-                overwrite: overwrite,
-                rename: !overwrite
-            };
-
-            Editor.Message.request('asset-db', 'move-asset', source, target, options).then((result: any) => {
-                if (result && result.uuid) {
-                    resolve({
-                        success: true,
-                        data: {
-                            uuid: result.uuid,
-                            url: result.url,
-                            message: 'Asset moved successfully'
-                        }
-                    });
-                } else {
-                    resolve({
-                        success: true,
-                        data: {
-                            source: source,
-                            target: target,
-                            message: 'Asset moved successfully'
-                        }
-                    });
+            // Check if target exists
+            this.queryUuidByUrl(target).then(() => {
+                if (!overwrite) {
+                    resolve({ success: false, error: 'Target asset already exists. Use overwrite=true to replace.' });
+                    return;
                 }
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+                // Delete existing target
+                Editor.assetdb.delete([target]);
+                // Then move
+                Editor.assetdb.move(source, target, false);
+                resolve({
+                    success: true,
+                    data: {
+                        source: source,
+                        target: target,
+                        message: 'Asset moved successfully'
+                    }
+                });
+            }).catch(() => {
+                // Target doesn't exist, proceed with move
+                Editor.assetdb.move(source, target, false);
+                resolve({
+                    success: true,
+                    data: {
+                        source: source,
+                        target: target,
+                        message: 'Asset moved successfully'
+                    }
+                });
             });
         });
     }
 
     private async deleteAsset(url: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'delete-asset', url).then((result: any) => {
-                resolve({
-                    success: true,
-                    data: {
-                        url: url,
-                        message: 'Asset deleted successfully'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            // Note: Editor.assetdb.delete() does not provide a callback in 2.x
+            Editor.assetdb.delete([url]);
+            resolve({
+                success: true,
+                data: {
+                    url: url,
+                    message: 'Asset deleted successfully'
+                }
             });
         });
     }
 
     private async saveAsset(url: string, content: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'save-asset', url, content).then((result: any) => {
-                if (result && result.uuid) {
-                    resolve({
-                        success: true,
-                        data: {
-                            uuid: result.uuid,
-                            url: result.url,
-                            message: 'Asset saved successfully'
-                        }
-                    });
-                } else {
-                    resolve({
-                        success: true,
-                        data: {
-                            url: url,
-                            message: 'Asset saved successfully'
-                        }
-                    });
-                }
-            }).catch((err: Error) => {
+        return new Promise(async (resolve) => {
+            try {
+                // 2.x doesn't have direct save-asset API, so we need to write to file system and refresh
+                const assetPath = await this.queryPathByUrl(url);
+
+                fs.writeFileSync(assetPath, content, 'utf8');
+
+                // Refresh the asset
+                Editor.assetdb.refresh(url, (err: Error | null) => {
+                    if (err) {
+                        resolve({ success: false, error: err.message });
+                    } else {
+                        resolve({
+                            success: true,
+                            data: {
+                                url: url,
+                                message: 'Asset saved successfully'
+                            }
+                        });
+                    }
+                });
+            } catch (err: any) {
                 resolve({ success: false, error: err.message });
-            });
+            }
         });
     }
 
     private async reimportAsset(url: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'reimport-asset', url).then(() => {
-                resolve({
-                    success: true,
-                    data: {
-                        url: url,
-                        message: 'Asset reimported successfully'
-                    }
-                });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
+            // In 2.x, refresh is used to reimport
+            Editor.assetdb.refresh(url, (err: Error | null) => {
+                if (err) {
+                    resolve({ success: false, error: err.message });
+                } else {
+                    resolve({
+                        success: true,
+                        data: {
+                            url: url,
+                            message: 'Asset reimported successfully'
+                        }
+                    });
+                }
             });
         });
     }
 
     private async queryAssetPath(url: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'query-path', url).then((path: string | null) => {
-                if (path) {
-                    resolve({
-                        success: true,
-                        data: {
-                            url: url,
-                            path: path,
-                            message: 'Asset path retrieved successfully'
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: 'Asset path not found' });
-                }
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        return new Promise(async (resolve) => {
+            try {
+                const path = await this.queryPathByUrl(url);
+                resolve({
+                    success: true,
+                    data: {
+                        url: url,
+                        path: path,
+                        message: 'Asset path retrieved successfully'
+                    }
+                });
+            } catch (err: any) {
+                resolve({ success: false, error: err.message || 'Asset path not found' });
+            }
         });
     }
 
     private async queryAssetUuid(url: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'query-uuid', url).then((uuid: string | null) => {
-                if (uuid) {
-                    resolve({
-                        success: true,
-                        data: {
-                            url: url,
-                            uuid: uuid,
-                            message: 'Asset UUID retrieved successfully'
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: 'Asset UUID not found' });
-                }
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        return new Promise(async (resolve) => {
+            try {
+                const uuid = await this.queryUuidByUrl(url);
+                resolve({
+                    success: true,
+                    data: {
+                        url: url,
+                        uuid: uuid,
+                        message: 'Asset UUID retrieved successfully'
+                    }
+                });
+            } catch (err: any) {
+                resolve({ success: false, error: err.message || 'Asset UUID not found' });
+            }
         });
     }
 
     private async queryAssetUrl(uuid: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Message.request('asset-db', 'query-url', uuid).then((url: string | null) => {
-                if (url) {
-                    resolve({
-                        success: true,
-                        data: {
-                            uuid: uuid,
-                            url: url,
-                            message: 'Asset URL retrieved successfully'
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: 'Asset URL not found' });
-                }
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+        return new Promise(async (resolve) => {
+            try {
+                const url = await this.queryUrlByUuid(uuid);
+                resolve({
+                    success: true,
+                    data: {
+                        uuid: uuid,
+                        url: url,
+                        message: 'Asset URL retrieved successfully'
+                    }
+                });
+            } catch (err: any) {
+                resolve({ success: false, error: err.message || 'Asset URL not found' });
+            }
         });
     }
 
@@ -1063,7 +1126,7 @@ export class ProjectTools implements ToolExecutor {
                         for (const subAsset of possibleSubAssets) {
                             try {
                                 // Try to get URL for the sub-asset to verify it exists
-                                const subAssetUrl = await Editor.Message.request('asset-db', 'query-url', subAsset.uuid);
+                                const subAssetUrl = await this.queryUrlByUuid(subAsset.uuid);
                                 if (subAssetUrl) {
                                     detailedInfo.subAssets.push({
                                         type: subAsset.type,
