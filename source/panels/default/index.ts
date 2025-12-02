@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'fs-extra';
 import { join } from 'path';
-import Vue from 'vue';
+import { createApp } from 'vue';
 
 // 定义工具配置接口
 interface ToolConfig {
@@ -48,28 +48,29 @@ module.exports = Editor.Panel.extend({
     ready() {
         const appElement = (this as any).$.app;
         if (appElement) {
-            // Vue 2 application using Options API
+            // Vue 3 application using Options API
             // TypeScript strict mode compatibility: use type assertion for Vue instance
-            const vm = new Vue({
-                el: appElement,
-                data: {
-                    activeTab: 'server',
-                    serverRunning: false,
-                    serverStatus: '已停止',
-                    connectedClients: 0,
-                    httpUrl: '',
-                    isProcessing: false,
-                    settings: {
-                        port: 3000,
-                        autoStart: false,
-                        debugLog: false,
-                        maxConnections: 10
-                    },
-                    availableTools: [] as ToolConfig[],
-                    toolCategories: [] as string[],
-                    settingsChanged: false,
-                    selectedCategory: '',
-                    searchQuery: ''
+            const app = createApp({
+                data() {
+                    return {
+                        activeTab: 'server',
+                        serverRunning: false,
+                        serverStatus: '已停止',
+                        connectedClients: 0,
+                        httpUrl: '',
+                        isProcessing: false,
+                        settings: {
+                            port: 3000,
+                            autoStart: false,
+                            debugLog: false,
+                            maxConnections: 10
+                        },
+                        availableTools: [] as ToolConfig[],
+                        toolCategories: [] as string[],
+                        settingsChanged: false,
+                        selectedCategory: '',
+                        searchQuery: ''
+                    };
                 },
                 computed: {
                     statusClass(): any {
@@ -304,7 +305,9 @@ module.exports = Editor.Panel.extend({
                 }
             });
 
-            console.log('[MCP Panel] Vue 2 app initialized');
+            // Mount Vue 3 app
+            app.mount(appElement);
+            console.log('[MCP Panel] Vue 3 app initialized');
         }
     },
     beforeClose() {

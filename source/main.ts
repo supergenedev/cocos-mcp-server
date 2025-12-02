@@ -255,3 +255,54 @@ export function unload() {
         mcpServer = null;
     }
 }
+
+export const messages = {
+    'open-panel'() {
+        methods.openPanel();
+    },
+    'open-tool-manager'() {
+        methods.openToolManager();
+    },
+    'start-server'() {
+        methods.startServer();
+    },
+    'stop-server'() {
+        methods.stopServer();
+    },
+    'get-server-status'() {
+        methods.getServerStatus();
+    },
+    'update-settings'() {
+        methods.updateSettings();
+    },
+    'get-tools-list'() {
+        methods.getToolsList();
+    },
+    'get-server-settings'() {
+        methods.getServerSettings();
+    },
+    'get-tool-manager-state'() {
+        methods.getToolManagerState();
+    },
+    'create-tool-configuration'() {
+        methods.createToolConfiguration();
+    },
+    'update-tool-configuration'() {
+        methods.updateToolConfiguration();
+    },
+    'delete-tool-configuration'() {
+        methods.deleteToolConfiguration();
+    },
+    'set-current-tool-configuration'() {
+        methods.setCurrentToolConfiguration();
+    },
+    'update-tool-status'() {
+        methods.updateToolStatus();
+    },
+    'update-tool-status-batch'() {
+        methods.updateToolStatusBatch();
+    },
+    'export-tool-configuration'() {
+        methods.exportToolConfiguration();
+    },
+}
