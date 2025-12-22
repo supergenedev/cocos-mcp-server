@@ -90,7 +90,7 @@ export class MCPServer {
 
     private setupTools(): void {
         this.toolsList = [];
-        
+
         // 如果没有启用工具配置，返回所有工具
         if (!this.enabledTools || this.enabledTools.length === 0) {
             for (const [category, toolSet] of Object.entries(this.tools)) {
@@ -106,7 +106,7 @@ export class MCPServer {
         } else {
             // 根据启用的工具配置过滤
             const enabledToolNames = new Set(this.enabledTools.map(tool => `${tool.category}_${tool.name}`));
-            
+
             for (const [category, toolSet] of Object.entries(this.tools)) {
                 const tools = toolSet.getTools();
                 for (const tool of tools) {
@@ -121,7 +121,7 @@ export class MCPServer {
                 }
             }
         }
-        
+
         console.log(`[MCPServer] Setup tools: ${this.toolsList.length} tools available`);
     }
 
@@ -138,11 +138,11 @@ export class MCPServer {
         const parts = toolName.split('_');
         const category = parts[0];
         const toolMethodName = parts.slice(1).join('_');
-        
+
         if (this.tools[category]) {
             return await this.tools[category].execute(toolMethodName, args);
         }
-        
+
         throw new Error(`Tool ${toolName} not found`);
     }
 
@@ -166,19 +166,19 @@ export class MCPServer {
     private async handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         const parsedUrl = url.parse(req.url || '', true);
         const pathname = parsedUrl.pathname;
-        
+
         // Set CORS headers
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Content-Type', 'application/json');
-        
+
         if (req.method === 'OPTIONS') {
             res.writeHead(200);
             res.end();
             return;
         }
-        
+
         try {
             if (pathname === '/mcp' && req.method === 'POST') {
                 await this.handleMCPRequest(req, res);
@@ -200,14 +200,14 @@ export class MCPServer {
             res.end(JSON.stringify({ error: 'Internal server error' }));
         }
     }
-    
+
     private async handleMCPRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         let body = '';
-        
+
         req.on('data', (chunk) => {
             body += chunk.toString();
         });
-        
+
         req.on('end', async () => {
             try {
                 // Enhanced JSON parsing with better error handling
@@ -224,7 +224,7 @@ export class MCPServer {
                         throw new Error(`JSON parsing failed: ${parseError.message}. Original body: ${body.substring(0, 500)}...`);
                     }
                 }
-                
+
                 const response = await this.handleMessage(message);
                 res.writeHead(200);
                 res.end(JSON.stringify(response));
@@ -294,7 +294,7 @@ export class MCPServer {
 
     private fixCommonJsonIssues(jsonStr: string): string {
         let fixed = jsonStr;
-        
+
         // Fix common escape character issues
         fixed = fixed
             // Fix unescaped quotes in strings
@@ -309,7 +309,7 @@ export class MCPServer {
             .replace(/\n/g, '\\n')
             .replace(/\r/g, '\\r')
             .replace(/\t/g, '\\t');
-        
+
         return fixed;
     }
 
@@ -333,11 +333,11 @@ export class MCPServer {
 
     private async handleSimpleAPIRequest(req: http.IncomingMessage, res: http.ServerResponse, pathname: string): Promise<void> {
         let body = '';
-        
+
         req.on('data', (chunk) => {
             body += chunk.toString();
         });
-        
+
         req.on('end', async () => {
             try {
                 // Extract tool name from path like /api/node/set_position
@@ -347,11 +347,11 @@ export class MCPServer {
                     res.end(JSON.stringify({ error: 'Invalid API path. Use /api/{category}/{tool_name}' }));
                     return;
                 }
-                
+
                 const category = pathParts[1];
                 const toolName = pathParts[2];
                 const fullToolName = `${category}_${toolName}`;
-                
+
                 // Parse parameters with enhanced error handling
                 let params;
                 try {
@@ -372,17 +372,17 @@ export class MCPServer {
                         return;
                     }
                 }
-                
+
                 // Execute tool
                 const result = await this.executeToolCall(fullToolName, params);
-                
+
                 res.writeHead(200);
                 res.end(JSON.stringify({
                     success: true,
                     tool: fullToolName,
                     result: result
                 }));
-                
+
             } catch (error: any) {
                 console.error('Simple API error:', error);
                 res.writeHead(500);
@@ -400,7 +400,7 @@ export class MCPServer {
             const parts = tool.name.split('_');
             const category = parts[0];
             const toolName = parts.slice(1).join('_');
-            
+
             return {
                 name: tool.name,
                 category: category,
@@ -416,7 +416,7 @@ export class MCPServer {
         // Generate sample parameters based on schema
         const sampleParams = this.generateSampleParams(schema);
         const jsonString = JSON.stringify(sampleParams, null, 2);
-        
+
         return `curl -X POST http://127.0.0.1:8585/api/${category}/${toolName} \\
   -H "Content-Type: application/json" \\
   -d '${jsonString}'`;
@@ -424,7 +424,7 @@ export class MCPServer {
 
     private generateSampleParams(schema: any): any {
         if (!schema || !schema.properties) return {};
-        
+
         const sample: any = {};
         for (const [key, prop] of Object.entries(schema.properties as any)) {
             const propSchema = prop as any;

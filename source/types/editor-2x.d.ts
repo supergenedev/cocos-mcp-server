@@ -7,6 +7,11 @@ declare namespace Editor {
         excludeSelf?: boolean;
     }
 
+    interface IpcEvent {
+        reply(error: Error | null, result?: any): void;
+        sender: any;
+    }
+
     namespace Ipc {
         function sendToAll(message: string, ...args: any[]): void;
         function sendToMain(message: string, ...args: any[]): void;

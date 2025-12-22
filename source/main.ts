@@ -259,52 +259,133 @@ export function unload() {
 }
 
 export const messages = {
-    'open-panel'() {
-        methods.openPanel();
+    'open-panel'(event: Editor.IpcEvent) {
+        try {
+            methods.openPanel();
+            event.reply(null);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'open-tool-manager'() {
-        methods.openToolManager();
+    'open-tool-manager'(event: Editor.IpcEvent) {
+        try {
+            // methods.openToolManager() 메서드가 없으므로 패널 열기로 대체
+            methods.openPanel();
+            event.reply(null);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'start-server'() {
-        methods.startServer();
+    async 'start-server'(event: Editor.IpcEvent) {
+        try {
+            await methods.startServer();
+            event.reply(null);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'stop-server'() {
-        methods.stopServer();
+    async 'stop-server'(event: Editor.IpcEvent) {
+        try {
+            await methods.stopServer();
+            event.reply(null);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'get-server-status'() {
-        methods.getServerStatus();
+    'get-server-status'(event: Editor.IpcEvent) {
+        try {
+            const result = methods.getServerStatus();
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'update-settings'() {
-        methods.updateSettings();
+    'update-settings'(event: Editor.IpcEvent, settings: MCPServerSettings) {
+        try {
+            methods.updateSettings(settings);
+            event.reply(null);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'get-tools-list'() {
-        methods.getToolsList();
+    'get-tools-list'(event: Editor.IpcEvent) {
+        try {
+            const result = methods.getToolsList();
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'get-server-settings'() {
-        methods.getServerSettings();
+    async 'get-server-settings'(event: Editor.IpcEvent) {
+        try {
+            const result = await methods.getServerSettings();
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'get-tool-manager-state'() {
-        methods.getToolManagerState();
+    async 'get-tool-manager-state'(event: Editor.IpcEvent) {
+        try {
+            const result = await methods.getToolManagerState();
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'create-tool-configuration'() {
-        methods.createToolConfiguration();
+    async 'create-tool-configuration'(event: Editor.IpcEvent, name: string, description?: string) {
+        try {
+            const result = await methods.createToolConfiguration(name, description);
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'update-tool-configuration'() {
-        methods.updateToolConfiguration();
+    async 'update-tool-configuration'(event: Editor.IpcEvent, configId: string, updates: any) {
+        try {
+            const result = await methods.updateToolConfiguration(configId, updates);
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'delete-tool-configuration'() {
-        methods.deleteToolConfiguration();
+    async 'delete-tool-configuration'(event: Editor.IpcEvent, configId: string) {
+        try {
+            const result = await methods.deleteToolConfiguration(configId);
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'set-current-tool-configuration'() {
-        methods.setCurrentToolConfiguration();
+    async 'set-current-tool-configuration'(event: Editor.IpcEvent, configId: string) {
+        try {
+            const result = await methods.setCurrentToolConfiguration(configId);
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'update-tool-status'() {
-        methods.updateToolStatus();
+    async 'update-tool-status'(event: Editor.IpcEvent, category: string, toolName: string, enabled: boolean) {
+        try {
+            const result = await methods.updateToolStatus(category, toolName, enabled);
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'update-tool-status-batch'() {
-        methods.updateToolStatusBatch();
+    async 'update-tool-status-batch'(event: Editor.IpcEvent, updates: any[]) {
+        try {
+            const result = await methods.updateToolStatusBatch(updates);
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
-    'export-tool-configuration'() {
-        methods.exportToolConfiguration();
+    async 'export-tool-configuration'(event: Editor.IpcEvent, configId: string) {
+        try {
+            const result = await methods.exportToolConfiguration(configId);
+            event.reply(null, result);
+        } catch (error: any) {
+            event.reply(error instanceof Error ? error : new Error(String(error)));
+        }
     },
 }
