@@ -51,7 +51,7 @@ module.exports = Editor.Panel.extend({
     state: {
         activeTab: 'server' as 'server' | 'tools',
         serverRunning: false,
-        serverStatus: '已停止',
+        serverStatus: '중지됨',
         connectedClients: 0,
         httpUrl: '',
         isProcessing: false,
@@ -102,10 +102,10 @@ module.exports = Editor.Panel.extend({
         return `
             <div class="tab-navigation">
                 <button class="tab-button ${state.activeTab === 'server' ? 'active' : ''}" data-tab="server">
-                    <span>服务器</span>
+                    <span>서버</span>
                 </button>
                 <button class="tab-button ${state.activeTab === 'tools' ? 'active' : ''}" data-tab="tools">
-                    <span>工具管理</span>
+                    <span>도구 관리</span>
                 </button>
             </div>
         `;
@@ -114,15 +114,15 @@ module.exports = Editor.Panel.extend({
         return `
             <div class="tab-content">
                 <section class="server-status">
-                    <h3>服务器状态</h3>
+                    <h3>서버 상태</h3>
                     <div class="status-info">
                         <ui-prop>
-                            <ui-label slot="label">状态</ui-label>
+                            <ui-label slot="label">상태</ui-label>
                             <ui-label slot="content" class="status-value ${state.serverRunning ? 'status-running' : 'status-stopped'}">${state.serverStatus}</ui-label>
                         </ui-prop>
                         ${state.serverRunning ? `
                             <ui-prop>
-                                <ui-label slot="label">连接数</ui-label>
+                                <ui-label slot="label">연결 수</ui-label>
                                 <ui-label slot="content">${state.connectedClients}</ui-label>
                             </ui-prop>
                         ` : ''}
@@ -131,38 +131,38 @@ module.exports = Editor.Panel.extend({
 
                 <section class="server-controls">
                     <ui-button id="toggleServerBtn" class="primary" ${state.isProcessing ? 'disabled' : ''}>
-                        ${state.serverRunning ? '停止服务器' : '启动服务器'}
+                        ${state.serverRunning ? '서버 중지' : '서버 시작'}
                     </ui-button>
                 </section>
 
                 <section class="server-settings">
-                    <h3>服务器设置</h3>
+                    <h3>서버 설정</h3>
                     <ui-prop>
-                        <ui-label slot="label">端口</ui-label>
+                        <ui-label slot="label">포트</ui-label>
                         <ui-num-input slot="content" id="portInput" value="${state.settings.port}" min="1024" max="65535" step="1" ${state.serverRunning ? 'disabled' : ''}></ui-num-input>
                     </ui-prop>
                     <ui-prop>
-                        <ui-label slot="label">自动启动</ui-label>
+                        <ui-label slot="label">자동 시작</ui-label>
                         <ui-checkbox slot="content" id="autoStartCheckbox" ${state.settings.autoStart ? 'checked' : ''} ${state.serverRunning ? 'disabled' : ''}></ui-checkbox>
                     </ui-prop>
                     <ui-prop>
-                        <ui-label slot="label">调试日志</ui-label>
+                        <ui-label slot="label">디버그 로그</ui-label>
                         <ui-checkbox slot="content" id="debugLogCheckbox" ${state.settings.debugLog ? 'checked' : ''}></ui-checkbox>
                     </ui-prop>
                     <ui-prop>
-                        <ui-label slot="label">最大连接数</ui-label>
+                        <ui-label slot="label">최대 연결 수</ui-label>
                         <ui-num-input slot="content" id="maxConnectionsInput" value="${state.settings.maxConnections}" min="1" max="100" step="1"></ui-num-input>
                     </ui-prop>
                 </section>
 
                 ${state.serverRunning ? `
                     <section class="server-info">
-                        <h3>连接信息</h3>
+                        <h3>연결 정보</h3>
                         <div class="connection-details">
                             <ui-prop>
                                 <ui-label slot="label">HTTP URL</ui-label>
                                 <ui-input slot="content" value="${state.httpUrl}" readonly>
-                                    <ui-button slot="suffix" id="copyUrlBtn">复制</ui-button>
+                                    <ui-button slot="suffix" id="copyUrlBtn">복사</ui-button>
                                 </ui-input>
                             </ui-prop>
                         </div>
@@ -170,7 +170,7 @@ module.exports = Editor.Panel.extend({
                 ` : ''}
 
                 <footer>
-                    <ui-button id="saveSettingsBtn" ${!state.settingsChanged ? 'disabled' : ''}>保存设置</ui-button>
+                    <ui-button id="saveSettingsBtn" ${!state.settingsChanged ? 'disabled' : ''}>설정 저장</ui-button>
                 </footer>
             </div>
         `;
@@ -184,22 +184,22 @@ module.exports = Editor.Panel.extend({
             <div class="tab-content">
                 <section class="tool-manager">
                     <div class="tool-manager-header">
-                        <h3>工具管理</h3>
+                        <h3>도구 관리</h3>
                     </div>
 
                     <div class="tools-section">
                         <div class="tools-section-header">
                             <div class="tools-section-title">
-                                <h4>可用工具</h4>
+                                <h4>사용 가능한 도구</h4>
                                 <div class="tools-stats">
-                                    ${totalTools} 个工具
-                                    (${enabledTools} 启用 / ${disabledTools} 禁用)
+                                    ${totalTools}개 도구
+                                    (${enabledTools} 활성화 / ${disabledTools} 비활성화)
                                 </div>
                             </div>
                             <div class="tools-section-controls">
-                                <ui-button id="selectAllBtn" class="small">全选</ui-button>
-                                <ui-button id="deselectAllBtn" class="small">取消全选</ui-button>
-                                <ui-button id="saveToolsBtn" class="primary">保存更改</ui-button>
+                                <ui-button id="selectAllBtn" class="small">전체 선택</ui-button>
+                                <ui-button id="deselectAllBtn" class="small">전체 선택 해제</ui-button>
+                                <ui-button id="saveToolsBtn" class="primary">변경 사항 저장</ui-button>
                             </div>
                         </div>
 
@@ -220,8 +220,8 @@ module.exports = Editor.Panel.extend({
                 <div class="category-header">
                     <h5>${categoryDisplayName}</h5>
                     <div class="category-controls">
-                        <ui-button class="small category-select-all" data-category="${category}">全选</ui-button>
-                        <ui-button class="small category-deselect-all" data-category="${category}">取消全选</ui-button>
+                        <ui-button class="small category-select-all" data-category="${category}">전체 선택</ui-button>
+                        <ui-button class="small category-deselect-all" data-category="${category}">전체 선택 해제</ui-button>
                     </div>
                 </div>
                 <div class="tool-items">
@@ -245,18 +245,18 @@ module.exports = Editor.Panel.extend({
     },
     getCategoryDisplayName(category: string): string {
         const categoryMap: { [key: string]: string } = {
-            'scene': '场景工具',
-            'node': '节点工具',
-            'component': '组件工具',
-            'prefab': '预制体工具',
-            'asset': '资源工具',
-            'project': '项目工具',
-            'debug': '调试工具',
-            'server': '服务器工具',
-            'validation': '验证工具',
-            'broadcast': '广播工具',
-            'preferences': '偏好设置工具',
-            'reference-image': '参考图像工具'
+            'scene': '씬 도구',
+            'node': '노드 도구',
+            'component': '컴포넌트 도구',
+            'prefab': '프리팹 도구',
+            'asset': '에셋 도구',
+            'project': '프로젝트 도구',
+            'debug': '디버그 도구',
+            'server': '서버 도구',
+            'validation': '검증 도구',
+            'broadcast': '브로드캐스트 도구',
+            'preferences': '환경 설정 도구',
+            'reference-image': '참조 이미지 도구'
         };
         return categoryMap[category] || category;
     },
@@ -581,7 +581,7 @@ module.exports = Editor.Panel.extend({
             const status = await self.sendIpcRequest('cocos-mcp-server', 'get-server-status');
             if (status) {
                 state.serverRunning = status.running || false;
-                state.serverStatus = status.running ? '运行中' : '已停止';
+                state.serverStatus = status.running ? '실행 중' : '중지됨';
                 state.connectedClients = status.clients || 0;
                 state.httpUrl = `http://127.0.0.1:${status.settings?.port || 3000}/mcp`;
 

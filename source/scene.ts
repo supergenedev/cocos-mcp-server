@@ -1143,3 +1143,9 @@ export const methods: { [key: string]: (...any: any) => any } = {
         }
     }
 };
+
+export const messages = {
+    'create-new-scene'() {
+        methods.createNewScene();
+    }
+};

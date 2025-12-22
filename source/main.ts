@@ -29,6 +29,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     async startServer() {
         if (mcpServer) {
+            Editor.log('[Main] startServer');
             // 确保使用最新的工具配置
             const enabledTools = toolManager.getEnabledTools();
             mcpServer.updateEnabledTools(enabledTools);
@@ -44,6 +45,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
      */
     async stopServer() {
         if (mcpServer) {
+            Editor.log('[Main] stopServer');
             mcpServer.stop();
         } else {
             console.warn('[MCP插件] mcpServer 未初始化');
