@@ -6,160 +6,6 @@ export class SceneAdvancedTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
         return [
             {
-                name: 'reset_node_property',
-                description: 'Reset node property to default value',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Node UUID'
-                        },
-                        path: {
-                            type: 'string',
-                            description: 'Property path (e.g., position, rotation, scale)'
-                        }
-                    },
-                    required: ['uuid', 'path']
-                }
-            },
-            {
-                name: 'move_array_element',
-                description: 'Move array element position',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Node UUID'
-                        },
-                        path: {
-                            type: 'string',
-                            description: 'Array property path (e.g., __comps__)'
-                        },
-                        target: {
-                            type: 'number',
-                            description: 'Target item original index'
-                        },
-                        offset: {
-                            type: 'number',
-                            description: 'Offset amount (positive or negative)'
-                        }
-                    },
-                    required: ['uuid', 'path', 'target', 'offset']
-                }
-            },
-            {
-                name: 'remove_array_element',
-                description: 'Remove array element at specific index',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Node UUID'
-                        },
-                        path: {
-                            type: 'string',
-                            description: 'Array property path'
-                        },
-                        index: {
-                            type: 'number',
-                            description: 'Target item index to remove'
-                        }
-                    },
-                    required: ['uuid', 'path', 'index']
-                }
-            },
-            {
-                name: 'copy_node',
-                description: 'Copy node for later paste operation',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuids: {
-                            oneOf: [
-                                { type: 'string' },
-                                { type: 'array', items: { type: 'string' } }
-                            ],
-                            description: 'Node UUID or array of UUIDs to copy'
-                        }
-                    },
-                    required: ['uuids']
-                }
-            },
-            {
-                name: 'paste_node',
-                description: 'Paste previously copied nodes',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        target: {
-                            type: 'string',
-                            description: 'Target parent node UUID'
-                        },
-                        uuids: {
-                            oneOf: [
-                                { type: 'string' },
-                                { type: 'array', items: { type: 'string' } }
-                            ],
-                            description: 'Node UUIDs to paste'
-                        },
-                        keepWorldTransform: {
-                            type: 'boolean',
-                            description: 'Keep world transform coordinates',
-                            default: false
-                        }
-                    },
-                    required: ['target', 'uuids']
-                }
-            },
-            {
-                name: 'cut_node',
-                description: 'Cut node (copy + mark for move)',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuids: {
-                            oneOf: [
-                                { type: 'string' },
-                                { type: 'array', items: { type: 'string' } }
-                            ],
-                            description: 'Node UUID or array of UUIDs to cut'
-                        }
-                    },
-                    required: ['uuids']
-                }
-            },
-            {
-                name: 'reset_node_transform',
-                description: 'Reset node position, rotation and scale',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Node UUID'
-                        }
-                    },
-                    required: ['uuid']
-                }
-            },
-            {
-                name: 'reset_component',
-                description: 'Reset component to default values',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Component UUID'
-                        }
-                    },
-                    required: ['uuid']
-                }
-            },
-            {
                 name: 'restore_prefab',
                 description: 'Restore prefab instance from asset',
                 inputSchema: {
@@ -221,72 +67,6 @@ export class SceneAdvancedTools implements ToolExecutor {
                         }
                     },
                     required: ['name', 'method']
-                }
-            },
-            {
-                name: 'scene_snapshot',
-                description: 'Create scene state snapshot',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'scene_snapshot_abort',
-                description: 'Abort scene snapshot creation',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'begin_undo_recording',
-                description: 'Begin recording undo data',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        nodeUuid: {
-                            type: 'string',
-                            description: 'Node UUID to record'
-                        }
-                    },
-                    required: ['nodeUuid']
-                }
-            },
-            {
-                name: 'end_undo_recording',
-                description: 'End recording undo data',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        undoId: {
-                            type: 'string',
-                            description: 'Undo recording ID from begin_undo_recording'
-                        }
-                    },
-                    required: ['undoId']
-                }
-            },
-            {
-                name: 'cancel_undo_recording',
-                description: 'Cancel undo recording',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        undoId: {
-                            type: 'string',
-                            description: 'Undo recording ID to cancel'
-                        }
-                    },
-                    required: ['undoId']
-                }
-            },
-            {
-                name: 'soft_reload_scene',
-                description: 'Soft reload current scene',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
                 }
             },
             {
@@ -359,40 +139,12 @@ export class SceneAdvancedTools implements ToolExecutor {
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
         switch (toolName) {
-            case 'reset_node_property':
-                return await this.resetNodeProperty(args.uuid, args.path);
-            case 'move_array_element':
-                return await this.moveArrayElement(args.uuid, args.path, args.target, args.offset);
-            case 'remove_array_element':
-                return await this.removeArrayElement(args.uuid, args.path, args.index);
-            case 'copy_node':
-                return await this.copyNode(args.uuids);
-            case 'paste_node':
-                return await this.pasteNode(args.target, args.uuids, args.keepWorldTransform);
-            case 'cut_node':
-                return await this.cutNode(args.uuids);
-            case 'reset_node_transform':
-                return await this.resetNodeTransform(args.uuid);
-            case 'reset_component':
-                return await this.resetComponent(args.uuid);
             case 'restore_prefab':
                 return await this.restorePrefab(args.nodeUuid, args.assetUuid);
             case 'execute_component_method':
                 return await this.executeComponentMethod(args.uuid, args.name, args.args);
             case 'execute_scene_script':
                 return await this.executeSceneScript(args.name, args.method, args.args);
-            case 'scene_snapshot':
-                return await this.sceneSnapshot();
-            case 'scene_snapshot_abort':
-                return await this.sceneSnapshotAbort();
-            case 'begin_undo_recording':
-                return await this.beginUndoRecording(args.nodeUuid);
-            case 'end_undo_recording':
-                return await this.endUndoRecording(args.undoId);
-            case 'cancel_undo_recording':
-                return await this.cancelUndoRecording(args.undoId);
-            case 'soft_reload_scene':
-                return await this.softReloadScene();
             case 'query_scene_ready':
                 return await this.querySceneReady();
             case 'query_scene_dirty':
@@ -408,71 +160,6 @@ export class SceneAdvancedTools implements ToolExecutor {
             default:
                 throw new Error(`Unknown tool: ${toolName}`);
         }
-    }
-
-    private async resetNodeProperty(uuid: string, path: string): Promise<ToolResponse> {
-        // Note: reset-property is not supported in Cocos Creator 2.x
-        // Use scene:set-property to manually set default values instead
-        return Promise.resolve({
-            success: false,
-            error: 'reset-property is not supported in Cocos Creator 2.x. Please use set_node_property to set default values manually.'
-        });
-    }
-
-    private async moveArrayElement(uuid: string, path: string, target: number, offset: number): Promise<ToolResponse> {
-        // Note: move-array-element is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'move-array-element is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async removeArrayElement(uuid: string, path: string, index: number): Promise<ToolResponse> {
-        // Note: remove-array-element is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'remove-array-element is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async copyNode(uuids: string | string[]): Promise<ToolResponse> {
-        // Note: copy-node is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'copy-node is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async pasteNode(target: string, uuids: string | string[], keepWorldTransform: boolean = false): Promise<ToolResponse> {
-        // Note: paste-node is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'paste-node is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async cutNode(uuids: string | string[]): Promise<ToolResponse> {
-        // Note: cut-node is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'cut-node is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async resetNodeTransform(uuid: string): Promise<ToolResponse> {
-        // Note: reset-node is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'reset-node is not supported in Cocos Creator 2.x. Please use set_node_property to reset position/rotation/scale manually.'
-        });
-    }
-
-    private async resetComponent(uuid: string): Promise<ToolResponse> {
-        // Note: reset-component is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'reset-component is not supported in Cocos Creator 2.x'
-        });
     }
 
     private async restorePrefab(nodeUuid: string, assetUuid: string): Promise<ToolResponse> {
@@ -526,54 +213,6 @@ export class SceneAdvancedTools implements ToolExecutor {
             } catch (err: any) {
                 resolve({ success: false, error: err.message });
             }
-        });
-    }
-
-    private async sceneSnapshot(): Promise<ToolResponse> {
-        // Note: snapshot is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'scene snapshot is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async sceneSnapshotAbort(): Promise<ToolResponse> {
-        // Note: snapshot-abort is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'scene snapshot-abort is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async beginUndoRecording(nodeUuid: string): Promise<ToolResponse> {
-        // Note: begin-recording is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'undo recording is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async endUndoRecording(undoId: string): Promise<ToolResponse> {
-        // Note: end-recording is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'undo recording is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async cancelUndoRecording(undoId: string): Promise<ToolResponse> {
-        // Note: cancel-recording is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'undo recording is not supported in Cocos Creator 2.x'
-        });
-    }
-
-    private async softReloadScene(): Promise<ToolResponse> {
-        // Note: soft-reload is not supported in Cocos Creator 2.x
-        return Promise.resolve({
-            success: false,
-            error: 'soft-reload is not supported in Cocos Creator 2.x'
         });
     }
 
