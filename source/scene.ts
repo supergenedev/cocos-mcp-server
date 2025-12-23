@@ -6,95 +6,131 @@ module.paths.push(join(Editor.appPath, 'node_modules'));
 // Note: In Cocos Creator 2.x, 'cc' is available as a global variable in scene scripts
 // We don't need to require it like in 3.x
 
-export const methods: { [key: string]: (...any: any) => any } = {
+const methods: { [key: string]: (...any: any) => any } = {
     /**
      * Create a new scene
      */
-    createNewScene() {
+    createNewScene(event: any) {
         try {
             const scene = new cc.Scene();
             scene.name = 'New Scene';
             cc.director.runScene(scene);
-            return { success: true, message: 'New scene created successfully' };
+            if (event.reply) {
+                event.reply(null, { success: true, message: 'New scene created successfully' });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Add component to a node
      */
-    addComponentToNode(nodeUuid: string, componentType: string) {
+    addComponentToNode(event: any, nodeUuid: string, componentType: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             // Find node by UUID
             const node = scene.getChildByUuid(nodeUuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${nodeUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
+                }
+                return;
             }
 
             // Get component class
             const ComponentClass = cc.js.getClassByName(componentType);
             if (!ComponentClass) {
-                return { success: false, error: `Component type ${componentType} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component type ${componentType} not found` });
+                }
+                return;
             }
 
             // Add component
             const component = node.addComponent(ComponentClass as new () => cc.Component);
-            return {
-                success: true,
-                message: `Component ${componentType} added successfully`,
-                data: { componentId: component.uuid }
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    success: true,
+                    message: `Component ${componentType} added successfully`,
+                    data: { componentId: component.uuid }
+                });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Remove component from a node
      */
-    removeComponentFromNode(nodeUuid: string, componentType: string) {
+    removeComponentFromNode(event: any, nodeUuid: string, componentType: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(nodeUuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${nodeUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
+                }
+                return;
             }
 
             const ComponentClass = cc.js.getClassByName(componentType);
             if (!ComponentClass) {
-                return { success: false, error: `Component type ${componentType} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component type ${componentType} not found` });
+                }
+                return;
             }
 
             const component = node.getComponent(ComponentClass as new () => cc.Component);
             if (!component) {
-                return { success: false, error: `Component ${componentType} not found on node` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component ${componentType} not found on node` });
+                }
+                return;
             }
 
             node.removeComponent(component);
-            return { success: true, message: `Component ${componentType} removed successfully` };
+            if (event.reply) {
+                event.reply(null, { success: true, message: `Component ${componentType} removed successfully` });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Create a new node
      */
-    createNode(name: string, parentUuid?: string) {
+    createNode(event: any, name: string, parentUuid?: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = new cc.Node(name);
@@ -110,29 +146,39 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 scene.addChild(node);
             }
 
-            return {
-                success: true,
-                message: `Node ${name} created successfully`,
-                data: { uuid: node.uuid, name: node.name }
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    success: true,
+                    message: `Node ${name} created successfully`,
+                    data: { uuid: node.uuid, name: node.name }
+                });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Get node information
      */
-    getNodeInfo(nodeUuid: string) {
+    getNodeInfo(event: any, nodeUuid: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(nodeUuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${nodeUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
+                }
+                return;
             }
 
             // In 2.x, position is stored as x, y properties (for 2D) or position Vec3 (for 3D)
@@ -142,36 +188,43 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 z: (node.position as any).z || 0
             } : { x: node.x, y: node.y, z: 0 };
 
-            return {
-                success: true,
-                data: {
-                    uuid: node.uuid,
-                    name: node.name,
-                    active: node.active,
-                    position: posData,
-                    rotation: node.rotation || 0,
-                    scale: { x: node.scaleX, y: node.scaleY, z: 1 },
-                    parent: node.parent?.uuid,
-                    children: node.children.map((child: any) => child.uuid),
-                    components: (node as any)._components ? (node as any)._components.map((comp: any) => ({
-                        type: cc.js.getClassName(comp),
-                        enabled: comp.enabled
-                    })) : []
-                }
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    success: true,
+                    data: {
+                        uuid: node.uuid,
+                        name: node.name,
+                        active: node.active,
+                        position: posData,
+                        rotation: node.rotation || 0,
+                        scale: { x: node.scaleX, y: node.scaleY, z: 1 },
+                        parent: node.parent?.uuid,
+                        children: node.children.map((child: any) => child.uuid),
+                        components: (node as any)._components ? (node as any)._components.map((comp: any) => ({
+                            type: cc.js.getClassName(comp),
+                            enabled: comp.enabled
+                        })) : []
+                    }
+                });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Get all nodes in scene
      */
-    getAllNodes() {
+    getAllNodes(event: any) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const nodes: any[] = [];
@@ -188,77 +241,104 @@ export const methods: { [key: string]: (...any: any) => any } = {
 
             scene.children.forEach((child: any) => collectNodes(child));
 
-            return { success: true, data: nodes };
+            if (event.reply) {
+                event.reply(null, { success: true, data: nodes });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Find node by name
      */
-    findNodeByName(name: string) {
+    findNodeByName(event: any, name: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByName(name);
             if (!node) {
-                return { success: false, error: `Node with name ${name} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with name ${name} not found` });
+                }
+                return;
             }
 
-            return {
-                success: true,
-                data: {
-                    uuid: node.uuid,
-                    name: node.name,
-                    active: node.active,
-                    position: { x: node.x, y: node.y }
-                }
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    success: true,
+                    data: {
+                        uuid: node.uuid,
+                        name: node.name,
+                        active: node.active,
+                        position: { x: node.x, y: node.y }
+                    }
+                });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Get current scene information
      */
-    getCurrentSceneInfo() {
+    getCurrentSceneInfo(event: any) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
-            return {
-                success: true,
-                data: {
-                    name: scene.name,
-                    uuid: scene.uuid,
-                    nodeCount: scene.children.length
-                }
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    success: true,
+                    data: {
+                        name: scene.name,
+                        uuid: scene.uuid,
+                        nodeCount: scene.children.length
+                    }
+                });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Set node property
      */
-    setNodeProperty(nodeUuid: string, property: string, value: any) {
+    setNodeProperty(event: any, nodeUuid: string, property: string, value: any) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(nodeUuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${nodeUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
+                }
+                return;
             }
 
             // Set property - 2.x uses different methods
@@ -317,23 +397,30 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 (node as any)[property] = value;
             }
 
-            return {
-                success: true,
-                message: `Property '${property}' updated successfully`
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    success: true,
+                    message: `Property '${property}' updated successfully`
+                });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Get scene hierarchy
      */
-    getSceneHierarchy(includeComponents: boolean = false) {
+    getSceneHierarchy(event: any, includeComponents: boolean = false) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const processNode = (node: any): any => {
@@ -359,66 +446,92 @@ export const methods: { [key: string]: (...any: any) => any } = {
             };
 
             const hierarchy = scene.children.map((child: any) => processNode(child));
-            return { success: true, data: hierarchy };
+            if (event.reply) {
+                event.reply(null, { success: true, data: hierarchy });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Create prefab from node
      */
-    createPrefabFromNode(nodeUuid: string, prefabPath: string) {
+    createPrefabFromNode(event: any, nodeUuid: string, prefabPath: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(nodeUuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${nodeUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
+                }
+                return;
             }
 
             // Note: This is a simulation implementation because the runtime environment
             // cannot directly create prefab files in 2.x
             // Real prefab creation requires Editor API support
-            return {
-                success: true,
-                data: {
-                    prefabPath: prefabPath,
-                    sourceNodeUuid: nodeUuid,
-                    message: `Prefab created from node '${node.name}' at ${prefabPath}`
-                }
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    success: true,
+                    data: {
+                        prefabPath: prefabPath,
+                        sourceNodeUuid: nodeUuid,
+                        message: `Prefab created from node '${node.name}' at ${prefabPath}`
+                    }
+                });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Set component property
      */
-    setComponentProperty(nodeUuid: string, componentType: string, property: string, value: any) {
+    setComponentProperty(event: any, nodeUuid: string, componentType: string, property: string, value: any) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(nodeUuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${nodeUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
+                }
+                return;
             }
 
             const ComponentClass = cc.js.getClassByName(componentType);
             if (!ComponentClass) {
-                return { success: false, error: `Component type ${componentType} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component type ${componentType} not found` });
+                }
+                return;
             }
 
             const component = node.getComponent(ComponentClass as new () => cc.Component);
             if (!component) {
-                return { success: false, error: `Component ${componentType} not found on node` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component ${componentType} not found on node` });
+                }
+                return;
             }
 
             // Handle common properties with special treatment
@@ -443,9 +556,13 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 (component as any)[property] = value;
             }
 
-            return { success: true, message: `Component property '${property}' updated successfully` };
+            if (event.reply) {
+                event.reply(null, { success: true, message: `Component property '${property}' updated successfully` });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
@@ -453,26 +570,38 @@ export const methods: { [key: string]: (...any: any) => any } = {
      * Set component property with advanced type handling
      * Supports color, vec2, vec3, size, node references, component references, assets, and arrays
      */
-    setComponentPropertyAdvanced(nodeUuid: string, componentType: string, property: string, processedValue: any, propertyType: string) {
+    setComponentPropertyAdvanced(event: any, nodeUuid: string, componentType: string, property: string, processedValue: any, propertyType: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(nodeUuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${nodeUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
+                }
+                return;
             }
 
             const ComponentClass = cc.js.getClassByName(componentType);
             if (!ComponentClass) {
-                return { success: false, error: `Component type ${componentType} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component type ${componentType} not found` });
+                }
+                return;
             }
 
             const component = node.getComponent(ComponentClass as new () => cc.Component);
             if (!component) {
-                return { success: false, error: `Component ${componentType} not found on node` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component ${componentType} not found on node` });
+                }
+                return;
             }
 
             // Handle different property types
@@ -526,7 +655,10 @@ export const methods: { [key: string]: (...any: any) => any } = {
                         if (targetNode) {
                             (component as any)[property] = targetNode;
                         } else {
-                            return { success: false, error: `Target node with UUID ${processedValue.uuid} not found` };
+                            if (event.reply) {
+                                event.reply(null, { success: false, error: `Target node with UUID ${processedValue.uuid} not found` });
+                            }
+                            return;
                         }
                     }
                     break;
@@ -537,7 +669,10 @@ export const methods: { [key: string]: (...any: any) => any } = {
                     if (typeof processedValue === 'string') {
                         const targetNode = scene.getChildByUuid(processedValue);
                         if (!targetNode) {
-                            return { success: false, error: `Target node with UUID ${processedValue} not found` };
+                            if (event.reply) {
+                                event.reply(null, { success: false, error: `Target node with UUID ${processedValue} not found` });
+                            }
+                            return;
                         }
                         // Try to find the component type from property metadata
                         // For now, we'll try common component types or use the componentType parameter
@@ -546,7 +681,10 @@ export const methods: { [key: string]: (...any: any) => any } = {
                         if (targetComponent) {
                             (component as any)[property] = targetComponent;
                         } else {
-                            return { success: false, error: `No component found on target node ${processedValue}` };
+                            if (event.reply) {
+                                event.reply(null, { success: false, error: `No component found on target node ${processedValue}` });
+                            }
+                            return;
                         }
                     }
                     break;
@@ -609,20 +747,27 @@ export const methods: { [key: string]: (...any: any) => any } = {
                     break;
             }
 
-            return { success: true, message: `Component property '${property}' updated successfully` };
+            if (event.reply) {
+                event.reply(null, { success: true, message: `Component property '${property}' updated successfully` });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Query node tree structure
      */
-    queryNodeTree() {
+    queryNodeTree(event: any) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const buildTree = (node: any): any => {
@@ -635,30 +780,40 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 };
             };
 
-            return {
-                success: true,
-                uuid: scene.uuid,
-                name: scene.name,
-                children: scene.children.map((child: any) => buildTree(child))
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    success: true,
+                    uuid: scene.uuid,
+                    name: scene.name,
+                    children: scene.children.map((child: any) => buildTree(child))
+                });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Query specific node by UUID
      */
-    queryNode(uuid: string) {
+    queryNode(event: any, uuid: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, null);
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(uuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${uuid} not found` };
+                if (event.reply) {
+                    event.reply(null, null);
+                }
+                return;
             }
 
             const posData = node.position ? {
@@ -667,36 +822,43 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 z: (node.position as any).z || 0
             } : { x: node.x, y: node.y, z: 0 };
 
-            return {
-                uuid: node.uuid,
-                name: { value: node.name },
-                active: { value: node.active },
-                position: { value: posData },
-                rotation: { value: node.rotation || 0 },
-                scale: { value: { x: node.scaleX, y: node.scaleY, z: 1 } },
-                parent: { value: { uuid: node.parent?.uuid || null } },
-                children: node.children.map((child: any) => ({ uuid: child.uuid, name: child.name })),
-                __comps__: (node as any)._components ? (node as any)._components.map((comp: any) => ({
-                    __type__: cc.js.getClassName(comp),
-                    enabled: comp.enabled,
-                    uuid: comp.uuid
-                })) : [],
-                layer: { value: 1073741824 },
-                mobility: { value: 0 }
-            };
+            if (event.reply) {
+                event.reply(null, {
+                    uuid: node.uuid,
+                    name: { value: node.name },
+                    active: { value: node.active },
+                    position: { value: posData },
+                    rotation: { value: node.rotation || 0 },
+                    scale: { value: { x: node.scaleX, y: node.scaleY, z: 1 } },
+                    parent: { value: { uuid: node.parent?.uuid || null } },
+                    children: node.children.map((child: any) => ({ uuid: child.uuid, name: child.name })),
+                    __comps__: (node as any)._components ? (node as any)._components.map((comp: any) => ({
+                        __type__: cc.js.getClassName(comp),
+                        enabled: comp.enabled,
+                        uuid: comp.uuid
+                    })) : [],
+                    layer: { value: 1073741824 },
+                    mobility: { value: 0 }
+                });
+            }
         } catch (error: any) {
-            return null;
+            if (event.reply) {
+                event.reply(null, null);
+            }
         }
     },
 
     /**
      * Create node with options (supports prefabs, components, transform)
      */
-    createNodeWithOptions(options: any) {
+    createNodeWithOptions(event: any, options: any) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, null);
+                }
+                return;
             }
 
             let node: any = null;
@@ -706,10 +868,10 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 // In 2.x, prefab instantiation from UUID in scene scripts is not directly supported
                 // This would need to be handled by the editor API, not runtime API
                 // For now, return an error indicating this limitation
-                return {
-                    success: false,
-                    error: 'Prefab instantiation from UUID is not supported in 2.x scene scripts. Use editor API instead.'
-                };
+                if (event.reply) {
+                    event.reply(null, null);
+                }
+                return;
             } else {
                 // Create empty node
                 node = new cc.Node(options.name || 'New Node');
@@ -726,7 +888,10 @@ export const methods: { [key: string]: (...any: any) => any } = {
             }
 
             if (!node) {
-                return { success: false, error: 'Failed to create node' };
+                if (event.reply) {
+                    event.reply(null, null);
+                }
+                return;
             }
 
             // Set parent
@@ -741,25 +906,35 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 scene.addChild(node);
             }
 
-            return node.uuid;
+            if (event.reply) {
+                event.reply(null, node.uuid);
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, null);
+            }
         }
     },
 
     /**
      * Set node parent
      */
-    setParent(parentUuid: string, childUuids: string[], keepWorldTransform: boolean = false) {
+    setParent(event: any, parentUuid: string, childUuids: string[], keepWorldTransform: boolean = false) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const parent = scene.getChildByUuid(parentUuid);
             if (!parent) {
-                return { success: false, error: `Parent node with UUID ${parentUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Parent node with UUID ${parentUuid} not found` });
+                }
+                return;
             }
 
             for (const childUuid of childUuids) {
@@ -779,49 +954,69 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 }
             }
 
-            return { success: true, message: 'Parent set successfully' };
+            if (event.reply) {
+                event.reply(null, { success: true, message: 'Parent set successfully' });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Remove node from scene
      */
-    removeNode(uuid: string) {
+    removeNode(event: any, uuid: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(uuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${uuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${uuid} not found` });
+                }
+                return;
             }
 
             node.removeFromParent();
             node.destroy();
 
-            return { success: true, message: 'Node removed successfully' };
+            if (event.reply) {
+                event.reply(null, { success: true, message: 'Node removed successfully' });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Duplicate node
      */
-    duplicateNode(uuid: string) {
+    duplicateNode(event: any, uuid: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const node = scene.getChildByUuid(uuid);
             if (!node) {
-                return { success: false, error: `Node with UUID ${uuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Node with UUID ${uuid} not found` });
+                }
+                return;
             }
 
             // Use cc.instantiate to clone the node
@@ -835,20 +1030,27 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 scene.addChild(clonedNode);
             }
 
-            return { uuid: clonedNode.uuid };
+            if (event.reply) {
+                event.reply(null, { uuid: clonedNode.uuid });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Find nodes by pattern
      */
-    findNodes(pattern: string, exactMatch: boolean = false) {
+    findNodes(event: any, pattern: string, exactMatch: boolean = false) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const nodes: any[] = [];
@@ -874,34 +1076,45 @@ export const methods: { [key: string]: (...any: any) => any } = {
 
             scene.children.forEach((child: any) => searchNodes(child));
 
-            return { success: true, data: nodes };
+            if (event.reply) {
+                event.reply(null, { success: true, data: nodes });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Execute arbitrary JavaScript in scene context
      */
-    executeScript(script: string) {
+    executeScript(event: any, script: string) {
         try {
             // Execute script in global scope (or current scope)
             // Using eval is dangerous but necessary for this debug tool
             const result = eval(script);
-            return result;
+            if (event.reply) {
+                event.reply(null, result);
+            }
         } catch (error: any) {
-            return { error: error.message };
+            if (event.reply) {
+                event.reply(null, { error: error.message });
+            }
         }
     },
 
     /**
      * Execute component method
      */
-    executeComponentMethod(componentUuid: string, methodName: string, args: any[] = []) {
+    executeComponentMethod(event: any, componentUuid: string, methodName: string, args: any[] = []) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             // Find component by UUID - need to search all nodes
@@ -926,30 +1139,43 @@ export const methods: { [key: string]: (...any: any) => any } = {
             searchComponent(scene);
 
             if (!targetComponent) {
-                return { success: false, error: `Component with UUID ${componentUuid} not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component with UUID ${componentUuid} not found` });
+                }
+                return;
             }
 
             // Execute method
             if (typeof targetComponent[methodName] === 'function') {
                 const result = targetComponent[methodName](...args);
-                return { success: true, data: result };
+                if (event.reply) {
+                    event.reply(null, { success: true, data: result });
+                }
             } else {
-                return { success: false, error: `Method '${methodName}' not found on component` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Method '${methodName}' not found on component` });
+                }
             }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Query if scene is ready
      */
-    querySceneReady() {
+    querySceneReady(event: any) {
         try {
             const scene = cc.director.getScene();
-            return { success: true, data: { ready: scene !== null && scene !== undefined } };
+            if (event.reply) {
+                event.reply(null, { success: true, data: { ready: scene !== null && scene !== undefined } });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
@@ -958,20 +1184,24 @@ export const methods: { [key: string]: (...any: any) => any } = {
      * Note: In 2.x runtime, we cannot directly check dirty state
      * This is an editor-only feature, so we return false
      */
-    querySceneDirty() {
+    querySceneDirty(event: any) {
         try {
             // In 2.x runtime, we cannot access editor dirty state
             // Return false as default
-            return { success: true, data: { dirty: false } };
+            if (event.reply) {
+                event.reply(null, { success: true, data: { dirty: false } });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Query all registered classes
      */
-    querySceneClasses(extendsClass?: string) {
+    querySceneClasses(event: any, extendsClass?: string) {
         try {
             const classes: any[] = [];
 
@@ -1010,16 +1240,20 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 }
             }
 
-            return { success: true, data: classes };
+            if (event.reply) {
+                event.reply(null, { success: true, data: classes });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Query available scene components
      */
-    querySceneComponents() {
+    querySceneComponents(event: any) {
         try {
             const components: any[] = [];
 
@@ -1070,40 +1304,54 @@ export const methods: { [key: string]: (...any: any) => any } = {
                 }
             }
 
-            return { success: true, data: components };
+            if (event.reply) {
+                event.reply(null, { success: true, data: components });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Check if component has script
      */
-    queryComponentHasScript(className: string) {
+    queryComponentHasScript(event: any, className: string) {
         try {
             const CompClass = cc.js.getClassByName(className);
             if (!CompClass) {
-                return { success: false, error: `Component class '${className}' not found` };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: `Component class '${className}' not found` });
+                }
+                return;
             }
 
             // In 2.x, check if component has any methods (indicating it might have a script)
             // This is a simplified check - actual script detection would require more complex logic
             const hasScript = CompClass.prototype && Object.getOwnPropertyNames(CompClass.prototype).length > 1;
 
-            return { success: true, data: { hasScript } };
+            if (event.reply) {
+                event.reply(null, { success: true, data: { hasScript } });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     },
 
     /**
      * Query nodes by asset UUID
      */
-    queryNodesByAssetUuid(assetUuid: string) {
+    queryNodesByAssetUuid(event: any, assetUuid: string) {
         try {
             const scene = cc.director.getScene();
             if (!scene) {
-                return { success: false, error: 'No active scene' };
+                if (event.reply) {
+                    event.reply(null, { success: false, error: 'No active scene' });
+                }
+                return;
             }
 
             const nodeUuids: string[] = [];
@@ -1137,15 +1385,15 @@ export const methods: { [key: string]: (...any: any) => any } = {
 
             searchNodes(scene);
 
-            return { success: true, data: nodeUuids };
+            if (event.reply) {
+                event.reply(null, { success: true, data: nodeUuids });
+            }
         } catch (error: any) {
-            return { success: false, error: error.message };
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
         }
     }
 };
 
-export const messages = {
-    'create-new-scene'() {
-        methods.createNewScene();
-    }
-};
+module.exports = methods;

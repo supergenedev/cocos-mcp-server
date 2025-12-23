@@ -1,6 +1,7 @@
 /// <reference path="../types/editor-2x.d.ts" />
 
 import { ToolDefinition, ToolResponse, ToolExecutor, SceneInfo } from '../types';
+import { callSceneScriptAsync } from '../utils/scene-script-helper';
 
 export class SceneTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
@@ -124,19 +125,17 @@ export class SceneTools implements ToolExecutor {
     }
 
     private async getCurrentScene(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                // In 2.x, use Editor.Scene.callSceneScript to execute scene scripts
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'getCurrentSceneInfo');
-                if (result && result.success) {
-                    resolve(result);
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to get scene info' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            // In 2.x, use Editor.Scene.callSceneScript to execute scene scripts
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'getCurrentSceneInfo');
+            if (result && result.success) {
+                return result;
+            } else {
+                return { success: false, error: result?.error || 'Failed to get scene info' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async getSceneList(): Promise<ToolResponse> {
@@ -381,19 +380,17 @@ export class SceneTools implements ToolExecutor {
     }
 
     private async getSceneHierarchy(includeComponents: boolean = false): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                // In 2.x, use Editor.Scene.callSceneScript to execute scene scripts
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'getSceneHierarchy', includeComponents);
-                if (result && result.success) {
-                    resolve(result);
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to get scene hierarchy' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            // In 2.x, use Editor.Scene.callSceneScript to execute scene scripts
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'getSceneHierarchy', includeComponents);
+            if (result && result.success) {
+                return result;
+            } else {
+                return { success: false, error: result?.error || 'Failed to get scene hierarchy' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private buildHierarchy(node: any, includeComponents: boolean): any {

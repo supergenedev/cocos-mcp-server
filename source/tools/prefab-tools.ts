@@ -4,6 +4,7 @@
 import { ToolDefinition, ToolResponse, ToolExecutor, PrefabInfo } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
+import { callSceneScriptAsync } from '../utils/scene-script-helper';
 
 export class PrefabTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
@@ -937,7 +938,7 @@ export class PrefabTools implements ToolExecutor {
         return new Promise(async (resolve) => {
             try {
                 // 使用 2.x API 获取基本节点信息
-                const nodeInfo = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
+                const nodeInfo = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', nodeUuid);
                 if (!nodeInfo || !nodeInfo.success) {
                     resolve(null);
                     return;
@@ -965,7 +966,7 @@ export class PrefabTools implements ToolExecutor {
     private async getNodeWithChildren(nodeUuid: string): Promise<any> {
         try {
             // 使用 2.x API 获取整个场景树
-            const treeResult = Editor.Scene.callSceneScript('cocos-mcp-server', 'getSceneHierarchy');
+            const treeResult = await callSceneScriptAsync('cocos-mcp-server', 'getSceneHierarchy');
             const tree = treeResult?.data || treeResult;
             if (!tree) {
                 return null;
@@ -1060,28 +1061,25 @@ export class PrefabTools implements ToolExecutor {
     }
 
     private async buildBasicNodeInfo(nodeUuid: string): Promise<any> {
-        return new Promise((resolve) => {
-            try {
-                // 使用 2.x API 构建基本的节点信息
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
-                const nodeInfo = result?.data || result;
-                if (!nodeInfo) {
-                    resolve(null);
-                    return;
-                }
-
-                // 简化版本：只返回基本节点信息，不获取子节点和组件
-                // 这些信息将在后续的预制体处理中根据需要添加
-                const basicInfo = {
-                    ...nodeInfo,
-                    children: [],
-                    components: []
-                };
-                resolve(basicInfo);
-            } catch {
-                resolve(null);
+        try {
+            // 使用 2.x API 构建基本的节点信息
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', nodeUuid);
+            const nodeInfo = result?.data || result;
+            if (!nodeInfo) {
+                return null;
             }
-        });
+
+            // 简化版本：只返回基本节点信息，不获取子节点和组件
+            // 这些信息将在后续的预制体处理中根据需要添加
+            const basicInfo = {
+                ...nodeInfo,
+                children: [],
+                components: []
+            };
+            return basicInfo;
+        } catch {
+            return null;
+        }
     }
 
     // 验证节点数据是否有效
@@ -2430,19 +2428,16 @@ export class PrefabTools implements ToolExecutor {
 
     // 基于官方预制体格式的新实现方法
     private async getNodeDataForPrefab(nodeUuid: string): Promise<{ success: boolean; data?: any; error?: string }> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
-                const nodeData = result?.data || result;
-                if (!nodeData) {
-                    resolve({ success: false, error: '节点不存在' });
-                    return;
-                }
-                resolve({ success: true, data: nodeData });
-            } catch (error: any) {
-                resolve({ success: false, error: error.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', nodeUuid);
+            const nodeData = result?.data || result;
+            if (!nodeData) {
+                return { success: false, error: '节点不存在' };
             }
-        });
+            return { success: true, data: nodeData };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
     }
 
     private async createStandardPrefabData(nodeData: any, prefabName: string, prefabUuid: string): Promise<any[]> {

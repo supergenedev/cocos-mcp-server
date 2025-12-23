@@ -1,6 +1,7 @@
 /// <reference path="../types/editor-2x.d.ts" />
 
 import { ToolDefinition, ToolResponse, ToolExecutor } from '../types';
+import { callSceneScriptAsync } from '../utils/scene-script-helper';
 
 export class SceneAdvancedTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
@@ -184,167 +185,151 @@ export class SceneAdvancedTools implements ToolExecutor {
     }
 
     private async executeComponentMethod(uuid: string, name: string, args: any[] = []): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                // In 2.x, use Editor.Scene.callSceneScript to execute component methods
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'executeComponentMethod', uuid, name, args);
-                resolve({
-                    success: true,
-                    data: {
-                        result: result,
-                        message: `Method '${name}' executed successfully`
-                    }
-                });
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
-            }
-        });
+        try {
+            // In 2.x, use Editor.Scene.callSceneScript to execute component methods
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'executeComponentMethod', uuid, name, args);
+            return {
+                success: true,
+                data: {
+                    result: result,
+                    message: `Method '${name}' executed successfully`
+                }
+            };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async executeSceneScript(name: string, method: string, args: any[] = []): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                // In 2.x, use Editor.Scene.callSceneScript directly
-                const result = Editor.Scene.callSceneScript(name, method, ...args);
-                resolve({
-                    success: true,
-                    data: result
-                });
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
-            }
-        });
+        try {
+            // In 2.x, use Editor.Scene.callSceneScript directly
+            const result = await callSceneScriptAsync(name, method, ...args);
+            return {
+                success: true,
+                data: result
+            };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async querySceneReady(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'querySceneReady');
-                if (result && result.success) {
-                    resolve({
-                        success: true,
-                        data: {
-                            ready: result.data?.ready || false,
-                            message: result.data?.ready ? 'Scene is ready' : 'Scene is not ready'
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to query scene ready state' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'querySceneReady');
+            if (result && result.success) {
+                return {
+                    success: true,
+                    data: {
+                        ready: result.data?.ready || false,
+                        message: result.data?.ready ? 'Scene is ready' : 'Scene is not ready'
+                    }
+                };
+            } else {
+                return { success: false, error: result?.error || 'Failed to query scene ready state' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async querySceneDirty(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'querySceneDirty');
-                if (result && result.success) {
-                    resolve({
-                        success: true,
-                        data: {
-                            dirty: result.data?.dirty || false,
-                            message: result.data?.dirty ? 'Scene has unsaved changes' : 'Scene is clean'
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to query scene dirty state' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'querySceneDirty');
+            if (result && result.success) {
+                return {
+                    success: true,
+                    data: {
+                        dirty: result.data?.dirty || false,
+                        message: result.data?.dirty ? 'Scene has unsaved changes' : 'Scene is clean'
+                    }
+                };
+            } else {
+                return { success: false, error: result?.error || 'Failed to query scene dirty state' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async querySceneClasses(extendsClass?: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'querySceneClasses', extendsClass);
-                if (result && result.success) {
-                    resolve({
-                        success: true,
-                        data: {
-                            classes: result.data || [],
-                            count: result.data?.length || 0,
-                            extendsFilter: extendsClass
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to query scene classes' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'querySceneClasses', extendsClass);
+            if (result && result.success) {
+                return {
+                    success: true,
+                    data: {
+                        classes: result.data || [],
+                        count: result.data?.length || 0,
+                        extendsFilter: extendsClass
+                    }
+                };
+            } else {
+                return { success: false, error: result?.error || 'Failed to query scene classes' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async querySceneComponents(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'querySceneComponents');
-                if (result && result.success) {
-                    resolve({
-                        success: true,
-                        data: {
-                            components: result.data || [],
-                            count: result.data?.length || 0
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to query scene components' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'querySceneComponents');
+            if (result && result.success) {
+                return {
+                    success: true,
+                    data: {
+                        components: result.data || [],
+                        count: result.data?.length || 0
+                    }
+                };
+            } else {
+                return { success: false, error: result?.error || 'Failed to query scene components' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async queryComponentHasScript(className: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryComponentHasScript', className);
-                if (result && result.success) {
-                    const hasScript = result.data?.hasScript || false;
-                    resolve({
-                        success: true,
-                        data: {
-                            className: className,
-                            hasScript: hasScript,
-                            message: hasScript ? `Component '${className}' has script` : `Component '${className}' does not have script`
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to query component script status' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'queryComponentHasScript', className);
+            if (result && result.success) {
+                const hasScript = result.data?.hasScript || false;
+                return {
+                    success: true,
+                    data: {
+                        className: className,
+                        hasScript: hasScript,
+                        message: hasScript ? `Component '${className}' has script` : `Component '${className}' does not have script`
+                    }
+                };
+            } else {
+                return { success: false, error: result?.error || 'Failed to query component script status' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async queryNodesByAssetUuid(assetUuid: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNodesByAssetUuid', assetUuid);
-                if (result && result.success) {
-                    const nodeUuids = result.data || [];
-                    resolve({
-                        success: true,
-                        data: {
-                            assetUuid: assetUuid,
-                            nodeUuids: nodeUuids,
-                            count: nodeUuids.length,
-                            message: `Found ${nodeUuids.length} nodes using asset`
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to query nodes by asset UUID' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'queryNodesByAssetUuid', assetUuid);
+            if (result && result.success) {
+                const nodeUuids = result.data || [];
+                return {
+                    success: true,
+                    data: {
+                        assetUuid: assetUuid,
+                        nodeUuids: nodeUuids,
+                        count: nodeUuids.length,
+                        message: `Found ${nodeUuids.length} nodes using asset`
+                    }
+                };
+            } else {
+                return { success: false, error: result?.error || 'Failed to query nodes by asset UUID' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 }

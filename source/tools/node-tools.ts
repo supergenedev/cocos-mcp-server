@@ -3,6 +3,7 @@
 
 import { ToolDefinition, ToolResponse, ToolExecutor, NodeInfo } from '../types';
 import { ComponentTools } from './component-tools';
+import { callSceneScriptAsync } from '../utils/scene-script-helper';
 
 export class NodeTools implements ToolExecutor {
     private componentTools = new ComponentTools();
@@ -317,7 +318,7 @@ export class NodeTools implements ToolExecutor {
                 // 如果没有提供父节点UUID，获取场景根节点
                 if (!targetParentUuid) {
                     try {
-                        const sceneInfo = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNodeTree');
+                        const sceneInfo = await callSceneScriptAsync('cocos-mcp-server', 'queryNodeTree');
                         if (sceneInfo && sceneInfo.success && sceneInfo.uuid) {
                             targetParentUuid = sceneInfo.uuid;
                             console.log(`No parent specified, using scene root: ${targetParentUuid}`);
@@ -387,7 +388,7 @@ export class NodeTools implements ToolExecutor {
                 console.log('Creating node with options:', createNodeOptions);
 
                 // 创建节点 - Use 2.x Scene API
-                const nodeUuid = Editor.Scene.callSceneScript('cocos-mcp-server', 'createNodeWithOptions', createNodeOptions);
+                const nodeUuid = await callSceneScriptAsync('cocos-mcp-server', 'createNodeWithOptions', createNodeOptions);
                 const uuid = Array.isArray(nodeUuid) ? nodeUuid[0] : nodeUuid;
 
                 // Check if node creation failed
@@ -403,7 +404,7 @@ export class NodeTools implements ToolExecutor {
                 if (args.siblingIndex !== undefined && args.siblingIndex >= 0 && uuid && targetParentUuid) {
                     try {
                         await new Promise(resolve => setTimeout(resolve, 100)); // 等待内部状态更新
-                        Editor.Scene.callSceneScript('cocos-mcp-server', 'setParent',
+                        await callSceneScriptAsync('cocos-mcp-server', 'setParent',
                             targetParentUuid, [uuid], args.keepWorldTransform || false);
                     } catch (err) {
                         console.warn('Failed to set sibling index:', err);
@@ -499,61 +500,54 @@ export class NodeTools implements ToolExecutor {
     }
 
     private async getNodeInfo(uuid: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const nodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', uuid);
-                if (!nodeData) {
-                    resolve({
-                        success: false,
-                        error: 'Node not found or invalid response'
-                    });
-                    return;
-                }
-
-                // 根据实际返回的数据结构解析节点信息
-                const info: NodeInfo = {
-                    uuid: nodeData.uuid?.value || nodeData.uuid || uuid,
-                    name: nodeData.name?.value || nodeData.name || 'Unknown',
-                    active: nodeData.active?.value !== undefined ? nodeData.active.value : true,
-                    position: nodeData.position?.value || nodeData.position || { x: 0, y: 0, z: 0 },
-                    rotation: nodeData.rotation?.value || nodeData.rotation || { x: 0, y: 0, z: 0 },
-                    scale: nodeData.scale?.value || nodeData.scale || { x: 1, y: 1, z: 1 },
-                    parent: nodeData.parent?.value?.uuid || null,
-                    children: nodeData.children || [],
-                    components: (nodeData.__comps__ || []).map((comp: any) => ({
-                        type: comp.__type__ || 'Unknown',
-                        enabled: comp.enabled !== undefined ? comp.enabled : true
-                    })),
-                    layer: nodeData.layer?.value || 1073741824,
-                    mobility: nodeData.mobility?.value || 0
+        try {
+            const nodeData = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', uuid);
+            if (!nodeData) {
+                return {
+                    success: false,
+                    error: 'Node not found or invalid response'
                 };
-                resolve({ success: true, data: info });
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
             }
-        });
+
+            // 根据实际返回的数据结构解析节点信息
+            const info: NodeInfo = {
+                uuid: nodeData.uuid?.value || nodeData.uuid || uuid,
+                name: nodeData.name?.value || nodeData.name || 'Unknown',
+                active: nodeData.active?.value !== undefined ? nodeData.active.value : true,
+                position: nodeData.position?.value || nodeData.position || { x: 0, y: 0, z: 0 },
+                rotation: nodeData.rotation?.value || nodeData.rotation || { x: 0, y: 0, z: 0 },
+                scale: nodeData.scale?.value || nodeData.scale || { x: 1, y: 1, z: 1 },
+                parent: nodeData.parent?.value?.uuid || null,
+                children: nodeData.children || [],
+                components: (nodeData.__comps__ || []).map((comp: any) => ({
+                    type: comp.__type__ || 'Unknown',
+                    enabled: comp.enabled !== undefined ? comp.enabled : true
+                })),
+                layer: nodeData.layer?.value || 1073741824,
+                mobility: nodeData.mobility?.value || 0
+            };
+            return { success: true, data: info };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async findNodes(pattern: string, exactMatch: boolean = false): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'findNodes', pattern, exactMatch);
-                resolve(result);
-            } catch (err: any) {
-                resolve({ success: false, error: `Scene script failed: ${err.message}` });
-            }
-        });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'findNodes', pattern, exactMatch);
+            return result;
+        } catch (err: any) {
+            return { success: false, error: `Scene script failed: ${err.message}` };
+        }
     }
 
     private async findNodeByName(name: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'findNodeByName', name);
-                resolve(result);
-            } catch (err: any) {
-                resolve({ success: false, error: `Scene script failed: ${err.message}` });
-            }
-        });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'findNodeByName', name);
+            return result;
+        } catch (err: any) {
+            return { success: false, error: `Scene script failed: ${err.message}` };
+        }
     }
 
     private searchNodeInTree(node: any, targetName: string): any {
@@ -574,14 +568,12 @@ export class NodeTools implements ToolExecutor {
     }
 
     private async getAllNodes(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'getAllNodes');
-                resolve(result);
-            } catch (err: any) {
-                resolve({ success: false, error: `Scene script failed: ${err.message}` });
-            }
-        });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'getAllNodes');
+            return result;
+        } catch (err: any) {
+            return { success: false, error: `Scene script failed: ${err.message}` };
+        }
     }
 
     private getNodePath(node: any): string {
@@ -595,43 +587,42 @@ export class NodeTools implements ToolExecutor {
     }
 
     private async setNodeProperty(uuid: string, property: string, value: any): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'setNodeProperty', uuid, property, value);
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'setNodeProperty', uuid, property, value);
 
-                if (result && result.success) {
-                    // Get comprehensive verification data including updated node info
-                    this.getNodeInfo(uuid).then((nodeInfo) => {
-                        resolve({
-                            success: true,
-                            message: `Property '${property}' updated successfully`,
-                            data: {
-                                nodeUuid: uuid,
+            if (result && result.success) {
+                // Get comprehensive verification data including updated node info
+                try {
+                    const nodeInfo = await this.getNodeInfo(uuid);
+                    return {
+                        success: true,
+                        message: `Property '${property}' updated successfully`,
+                        data: {
+                            nodeUuid: uuid,
+                            property: property,
+                            newValue: value
+                        },
+                        verificationData: {
+                            nodeInfo: nodeInfo.data,
+                            changeDetails: {
                                 property: property,
-                                newValue: value
-                            },
-                            verificationData: {
-                                nodeInfo: nodeInfo.data,
-                                changeDetails: {
-                                    property: property,
-                                    value: value,
-                                    timestamp: new Date().toISOString()
-                                }
+                                value: value,
+                                timestamp: new Date().toISOString()
                             }
-                        });
-                    }).catch(() => {
-                        resolve({
-                            success: true,
-                            message: `Property '${property}' updated successfully (verification failed)`
-                        });
-                    });
-                } else {
-                    resolve(result || { success: false, error: 'Unknown error' });
+                        }
+                    };
+                } catch {
+                    return {
+                        success: true,
+                        message: `Property '${property}' updated successfully (verification failed)`
+                    };
                 }
-            } catch (err: any) {
-                resolve({ success: false, error: `Scene script failed: ${err.message}` });
+            } else {
+                return result || { success: false, error: 'Unknown error' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: `Scene script failed: ${err.message}` };
+        }
     }
 
     private async setNodeTransform(args: any): Promise<ToolResponse> {
@@ -659,8 +650,8 @@ export class NodeTools implements ToolExecutor {
                     }
 
                     updatePromises.push(
-                        Promise.resolve(Editor.Scene.callSceneScript('cocos-mcp-server', 'setNodeProperty',
-                            uuid, 'position', normalizedPosition.value))
+                        callSceneScriptAsync('cocos-mcp-server', 'setNodeProperty',
+                            uuid, 'position', normalizedPosition.value)
                     );
                     updates.push('position');
                 }
@@ -672,8 +663,8 @@ export class NodeTools implements ToolExecutor {
                     }
 
                     updatePromises.push(
-                        Promise.resolve(Editor.Scene.callSceneScript('cocos-mcp-server', 'setNodeProperty',
-                            uuid, 'rotation', normalizedRotation.value))
+                        callSceneScriptAsync('cocos-mcp-server', 'setNodeProperty',
+                            uuid, 'rotation', normalizedRotation.value)
                     );
                     updates.push('rotation');
                 }
@@ -685,8 +676,8 @@ export class NodeTools implements ToolExecutor {
                     }
 
                     updatePromises.push(
-                        Promise.resolve(Editor.Scene.callSceneScript('cocos-mcp-server', 'setNodeProperty',
-                            uuid, 'scale', normalizedScale.value))
+                        callSceneScriptAsync('cocos-mcp-server', 'setNodeProperty',
+                            uuid, 'scale', normalizedScale.value)
                     );
                     updates.push('scale');
                 }
@@ -835,62 +826,56 @@ export class NodeTools implements ToolExecutor {
     }
 
     private async deleteNode(uuid: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'removeNode', uuid);
-                if (result && result.success) {
-                    resolve({
-                        success: true,
-                        message: 'Node deleted successfully'
-                    });
-                } else {
-                    resolve(result || { success: false, error: 'Failed to delete node' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'removeNode', uuid);
+            if (result && result.success) {
+                return {
+                    success: true,
+                    message: 'Node deleted successfully'
+                };
+            } else {
+                return result || { success: false, error: 'Failed to delete node' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async moveNode(nodeUuid: string, newParentUuid: string, siblingIndex: number = -1): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'setParent',
-                    newParentUuid, [nodeUuid], false);
-                if (result && result.success) {
-                    resolve({
-                        success: true,
-                        message: 'Node moved successfully'
-                    });
-                } else {
-                    resolve(result || { success: false, error: 'Failed to move node' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'setParent',
+                newParentUuid, [nodeUuid], false);
+            if (result && result.success) {
+                return {
+                    success: true,
+                    message: 'Node moved successfully'
+                };
+            } else {
+                return result || { success: false, error: 'Failed to move node' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async duplicateNode(uuid: string, includeChildren: boolean = true): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                // Note: includeChildren parameter is accepted for future use but not currently implemented
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'duplicateNode', uuid);
-                if (result && result.uuid) {
-                    resolve({
-                        success: true,
-                        data: {
-                            newUuid: result.uuid,
-                            message: 'Node duplicated successfully'
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: result?.error || 'Failed to duplicate node' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
+        try {
+            // Note: includeChildren parameter is accepted for future use but not currently implemented
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'duplicateNode', uuid);
+            if (result && result.uuid) {
+                return {
+                    success: true,
+                    data: {
+                        newUuid: result.uuid,
+                        message: 'Node duplicated successfully'
+                    }
+                };
+            } else {
+                return { success: false, error: result?.error || 'Failed to duplicate node' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async detectNodeType(uuid: string): Promise<ToolResponse> {

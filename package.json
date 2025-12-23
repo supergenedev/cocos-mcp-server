@@ -37,6 +37,7 @@
         "min-height": 300,
         "icon": "static/icon.png"
     },
+    "scene-script": "./dist/scene.js",
     "contributions": {
         "menu": [
             {
@@ -136,22 +137,6 @@
                     "getEnabledTools"
                 ]
             }
-        },
-        "scene": {
-            "script": "./dist/scene.js",
-            "methods": [
-                "createNewScene",
-                "addComponentToNode",
-                "removeComponentFromNode",
-                "getNodeInfo",
-                "getAllNodes",
-                "findNodeByName",
-                "setNodeProperty",
-                "setComponentProperty",
-                "getCurrentSceneInfo",
-                "getSceneHierarchy",
-                "createPrefabFromNode"
-            ]
         }
     }
 }

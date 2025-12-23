@@ -52,7 +52,13 @@ declare namespace Editor {
     }
 
     namespace Scene {
-        function callSceneScript(method: string, ...args: any[]): any;
+        function callSceneScript(module: string, method: string, callback: (err: Error | null, result: any) => void): void;
+        function callSceneScript(module: string, method: string, arg1: any, callback: (err: Error | null, result: any) => void): void;
+        function callSceneScript(module: string, method: string, arg1: any, arg2: any, callback: (err: Error | null, result: any) => void): void;
+        function callSceneScript(module: string, method: string, arg1: any, arg2: any, arg3: any, callback: (err: Error | null, result: any) => void): void;
+        function callSceneScript(module: string, method: string, arg1: any, arg2: any, arg3: any, arg4: any, callback: (err: Error | null, result: any) => void): void;
+        function callSceneScript(module: string, method: string, arg1: any, arg2: any, arg3: any, arg4: any, arg5: any, callback: (err: Error | null, result: any) => void): void;
+        function callSceneScript(module: string, method: string, ...args: any[]): void;
     }
 
     // Note: In 2.x it's 'assetdb' (lowercase), not 'AssetDB'

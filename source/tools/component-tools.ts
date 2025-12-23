@@ -2,6 +2,7 @@
 /// <reference path="../types/cc-2x.d.ts" />
 
 import { ToolDefinition, ToolResponse, ToolExecutor, ComponentInfo } from '../types';
+import { callSceneScriptAsync } from '../utils/scene-script-helper';
 
 export class ComponentTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
@@ -227,7 +228,7 @@ export class ComponentTools implements ToolExecutor {
             }
             // 使用 2.x API 添加组件
             try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'addComponentToNode', nodeUuid, componentType);
+                const result = await callSceneScriptAsync('cocos-mcp-server', 'addComponentToNode', nodeUuid, componentType);
                 // 等待一段时间让Editor完成组件添加
                 await new Promise(resolve => setTimeout(resolve, 100));
                 // 重新查询节点信息验证组件是否真的添加成功
@@ -286,7 +287,7 @@ export class ComponentTools implements ToolExecutor {
             }
             // 3. 使用 2.x API 移除组件
             try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'removeComponentFromNode', nodeUuid, componentType);
+                const result = await callSceneScriptAsync('cocos-mcp-server', 'removeComponentFromNode', nodeUuid, componentType);
                 if (!result.success) {
                     resolve({ success: false, error: result.error || 'Failed to remove component' });
                     return;
@@ -310,65 +311,61 @@ export class ComponentTools implements ToolExecutor {
     }
 
     private async getComponents(nodeUuid: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                // 使用 2.x API 查询节点信息
-                const nodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
-                if (nodeData && nodeData.__comps__) {
-                    const components = nodeData.__comps__.map((comp: any) => ({
-                        type: comp.__type__ || comp.cid || comp.type || 'Unknown',
-                        uuid: comp.uuid?.value || comp.uuid || null,
-                        enabled: comp.enabled !== undefined ? comp.enabled : true,
-                        properties: this.extractComponentProperties(comp)
-                    }));
+        try {
+            // 使用 2.x API 查询节点信息
+            const nodeData = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', nodeUuid);
+            if (nodeData && nodeData.__comps__) {
+                const components = nodeData.__comps__.map((comp: any) => ({
+                    type: comp.__type__ || comp.cid || comp.type || 'Unknown',
+                    uuid: comp.uuid?.value || comp.uuid || null,
+                    enabled: comp.enabled !== undefined ? comp.enabled : true,
+                    properties: this.extractComponentProperties(comp)
+                }));
 
-                    resolve({
-                        success: true,
-                        data: {
-                            nodeUuid: nodeUuid,
-                            components: components
-                        }
-                    });
-                } else {
-                    resolve({ success: false, error: 'Node not found or no components data' });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: `Failed to get components: ${err.message}` });
+                return {
+                    success: true,
+                    data: {
+                        nodeUuid: nodeUuid,
+                        components: components
+                    }
+                };
+            } else {
+                return { success: false, error: 'Node not found or no components data' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: `Failed to get components: ${err.message}` };
+        }
     }
 
     private async getComponentInfo(nodeUuid: string, componentType: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            try {
-                // 使用 2.x API 查询节点信息
-                const nodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
-                if (nodeData && nodeData.__comps__) {
-                    const component = nodeData.__comps__.find((comp: any) => {
-                        const compType = comp.__type__ || comp.cid || comp.type;
-                        return compType === componentType;
-                    });
+        try {
+            // 使用 2.x API 查询节点信息
+            const nodeData = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', nodeUuid);
+            if (nodeData && nodeData.__comps__) {
+                const component = nodeData.__comps__.find((comp: any) => {
+                    const compType = comp.__type__ || comp.cid || comp.type;
+                    return compType === componentType;
+                });
 
-                    if (component) {
-                        resolve({
-                            success: true,
-                            data: {
-                                nodeUuid: nodeUuid,
-                                componentType: componentType,
-                                enabled: component.enabled !== undefined ? component.enabled : true,
-                                properties: this.extractComponentProperties(component)
-                            }
-                        });
-                    } else {
-                        resolve({ success: false, error: `Component '${componentType}' not found on node` });
-                    }
+                if (component) {
+                    return {
+                        success: true,
+                        data: {
+                            nodeUuid: nodeUuid,
+                            componentType: componentType,
+                            enabled: component.enabled !== undefined ? component.enabled : true,
+                            properties: this.extractComponentProperties(component)
+                        }
+                    };
                 } else {
-                    resolve({ success: false, error: 'Node not found or no components data' });
+                    return { success: false, error: `Component '${componentType}' not found on node` };
                 }
-            } catch (err: any) {
-                resolve({ success: false, error: `Failed to get component info: ${err.message}` });
+            } else {
+                return { success: false, error: 'Node not found or no components data' };
             }
-        });
+        } catch (err: any) {
+            return { success: false, error: `Failed to get component info: ${err.message}` };
+        }
     }
 
     private extractComponentProperties(component: any): Record<string, any> {
@@ -401,7 +398,7 @@ export class ComponentTools implements ToolExecutor {
             return null;
         }
         try {
-            const nodeTree = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNodeTree');
+            const nodeTree = await callSceneScriptAsync('cocos-mcp-server', 'queryNodeTree');
             if (!nodeTree) {
                 console.warn('[findComponentTypeByUuid] Failed to query node tree.');
                 return null;
@@ -416,7 +413,7 @@ export class ComponentTools implements ToolExecutor {
                 }
 
                 try {
-                    const fullNodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', currentNodeInfo.uuid);
+                    const fullNodeData = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', currentNodeInfo.uuid);
                     if (fullNodeData && fullNodeData.__comps__) {
                         for (const comp of fullNodeData.__comps__) {
                             const compAny = comp as any; // Cast to any to access dynamic properties
@@ -669,7 +666,7 @@ export class ComponentTools implements ToolExecutor {
                 // 所有复杂的类型转换은 이미 processedValue에 적용되어 있으므로,
                 // scene.ts의 setComponentPropertyAdvanced 메서드를 호출
                 try {
-                    const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'setComponentPropertyAdvanced',
+                    const result = await callSceneScriptAsync('cocos-mcp-server', 'setComponentPropertyAdvanced',
                         nodeUuid, componentType, property, processedValue, propertyType);
 
                     if (!result.success) {
@@ -729,7 +726,7 @@ export class ComponentTools implements ToolExecutor {
 
                     try {
                         // 获取目标节点的组件信息
-                        const targetNodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', targetNodeUuid);
+                        const targetNodeData = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', targetNodeUuid);
                         if (!targetNodeData || !targetNodeData.__comps__) {
                             throw new Error(`Target node ${targetNodeUuid} not found or has no components`);
                         }
@@ -798,7 +795,7 @@ export class ComponentTools implements ToolExecutor {
                         // Component reference는 setComponentPropertyAdvanced로 처리
                         // processedValue를 componentId를 포함한 객체로 변환
                         const componentRefValue = { uuid: componentId };
-                        const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'setComponentPropertyAdvanced',
+                        const result = await callSceneScriptAsync('cocos-mcp-server', 'setComponentPropertyAdvanced',
                             nodeUuid, componentType, property, componentRefValue, propertyType);
 
                         if (!result.success) {
@@ -867,7 +864,7 @@ export class ComponentTools implements ToolExecutor {
             }
             // 使用 2.x API 添加脚本组件
             try {
-                const result = Editor.Scene.callSceneScript('cocos-mcp-server', 'addComponentToNode', nodeUuid, scriptName);
+                const result = await callSceneScriptAsync('cocos-mcp-server', 'addComponentToNode', nodeUuid, scriptName);
                 // 等待一段时间让Editor完成组件添加
                 await new Promise(resolve => setTimeout(resolve, 100));
                 // 重新查询节点信息验证脚本是否真的添加成功
@@ -1485,7 +1482,7 @@ export class ComponentTools implements ToolExecutor {
      */
     private async quickVerifyAsset(nodeUuid: string, componentType: string, property: string): Promise<any> {
         try {
-            const rawNodeData = Editor.Scene.callSceneScript('cocos-mcp-server', 'queryNode', nodeUuid);
+            const rawNodeData = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', nodeUuid);
             if (!rawNodeData || !rawNodeData.__comps__) {
                 return null;
             }
