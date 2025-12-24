@@ -5,8 +5,16 @@ import { ToolDefinition, ToolResponse, ToolExecutor, PrefabInfo } from '../types
 import * as fs from 'fs';
 import * as path from 'path';
 import { callSceneScriptAsync } from '../utils/scene-script-helper';
+import { ComponentTools } from './component-tools';
 
 export class PrefabTools implements ToolExecutor {
+    private componentTools: ComponentTools;
+
+    constructor() {
+        this.componentTools = new ComponentTools();
+    }
+
+
     getTools(): ToolDefinition[] {
         return [
             {
@@ -741,7 +749,8 @@ export class PrefabTools implements ToolExecutor {
                 }
 
                 // 获取引擎分配的实际UUID
-                const actualPrefabUuid = createResult.data?.uuid;
+                // createResult.data is an array, get uuid from first element
+                const actualPrefabUuid = Array.isArray(createResult.data) ? createResult.data[0]?.uuid : createResult.data?.uuid;
                 if (!actualPrefabUuid) {
                     resolve({
                         success: false,
@@ -755,9 +764,10 @@ export class PrefabTools implements ToolExecutor {
                 const prefabContent = await this.createStandardPrefabContent(nodeData, prefabName, actualPrefabUuid, includeChildren, includeComponents);
                 const prefabContentString = JSON.stringify(prefabContent, null, 2);
 
-                // 第四步：更新预制体文件内容
+                // 第四步：更新预制体文件内容 - 使用文件系统直接写入，避免创建重复文件
                 console.log('更新预制体文件内容...');
-                const updateResult = await this.updateAssetWithAssetDB(savePath, prefabContentString);
+                const actualFilePath = Array.isArray(createResult.data) ? createResult.data[0]?.path : createResult.data?.path;
+                const updateResult = await this.updateAssetWithFileSystem(actualFilePath, savePath, prefabContentString);
 
                 // 第五步：创建对应的meta文件（使用实际UUID）
                 console.log('创建预制体meta文件...');
@@ -939,7 +949,8 @@ export class PrefabTools implements ToolExecutor {
             try {
                 // 使用 2.x API 获取基本节点信息
                 const nodeInfo = await callSceneScriptAsync('cocos-mcp-server', 'queryNode', nodeUuid);
-                if (!nodeInfo || !nodeInfo.success) {
+                // queryNode returns node data directly (not wrapped in {success: true}), so we only check for null
+                if (!nodeInfo) {
                     resolve(null);
                     return;
                 }
@@ -1012,7 +1023,7 @@ export class PrefabTools implements ToolExecutor {
     }
 
     /**
-     * 使用MCP接口增强节点树，获取正确的组件信息
+     * 使用ComponentTools直接增强节点树，获取正确的组件信息
      */
     private async enhanceTreeWithMCPComponents(node: any): Promise<any> {
         if (!node || !node.uuid) {
@@ -1020,34 +1031,18 @@ export class PrefabTools implements ToolExecutor {
         }
 
         try {
-            // 使用MCP接口获取节点的组件信息
-            const response = await fetch('http://localhost:8585/mcp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    "jsonrpc": "2.0",
-                    "method": "tools/call",
-                    "params": {
-                        "name": "component_get_components",
-                        "arguments": {
-                            "nodeUuid": node.uuid
-                        }
-                    },
-                    "id": Date.now()
-                })
+            // 직접 ComponentTools를 사용하여 노드의 컴포넌트 정보 가져오기
+            const componentResult = await this.componentTools.execute('component_get_components', {
+                nodeUuid: node.uuid
             });
 
-            const mcpResult = await response.json();
-            if (mcpResult.result?.content?.[0]?.text) {
-                const componentData = JSON.parse(mcpResult.result.content[0].text);
-                if (componentData.success && componentData.data.components) {
-                    // 更新节点的组件信息为MCP返回的正确数据
-                    node.components = componentData.data.components;
-                    console.log(`节点 ${node.uuid} 获取到 ${componentData.data.components.length} 个组件，包含脚本组件的正确类型`);
-                }
+            if (componentResult.success && componentResult.data?.components) {
+                // 노드의 컴포넌트 정보를 올바른 데이터로 업데이트
+                node.components = componentResult.data.components;
+                console.log(`节点 ${node.uuid} 获取到 ${componentResult.data.components.length} 个组件，包含脚本组件的正确类型`);
             }
         } catch (error) {
-            console.warn(`获取节点 ${node.uuid} 的MCP组件信息失败:`, error);
+            console.warn(`获取节点 ${node.uuid} 的组件信息失败:`, error);
         }
 
         // 递归处理子节点
@@ -1675,7 +1670,38 @@ export class PrefabTools implements ToolExecutor {
     }
 
     /**
-     * 使用 asset-db API 更新资源文件内容
+     * 使用文件系统直接更新资源文件内容（避免Editor.assetdb.create创建重复文件）
+     */
+    private async updateAssetWithFileSystem(filePath: string, assetPath: string, content: string): Promise<{ success: boolean; data?: any; error?: string }> {
+        return new Promise((resolve) => {
+            try {
+                if (!filePath) {
+                    console.error('文件路径为空，无法更新');
+                    resolve({ success: false, error: '文件路径为空' });
+                    return;
+                }
+
+                // 直接使用fs写入文件，覆盖现有内容
+                fs.writeFileSync(filePath, content, 'utf8');
+                console.log('文件系统更新成功:', filePath);
+
+                // 通知资源数据库刷新该文件
+                Editor.assetdb.refresh(assetPath, (err: Error | null) => {
+                    if (err) {
+                        console.warn('刷新资源失败，但文件已更新:', err);
+                    }
+                });
+
+                resolve({ success: true, data: { path: filePath } });
+            } catch (error) {
+                console.error('更新文件失败:', error);
+                resolve({ success: false, error: String(error) });
+            }
+        });
+    }
+
+    /**
+     * 使用 asset-db API 更新资源文件内容（已弃用 - 会创建重复文件）
      */
     private async updateAssetWithAssetDB(assetPath: string, content: string): Promise<{ success: boolean; data?: any; error?: string }> {
         return new Promise((resolve) => {
@@ -2883,7 +2909,14 @@ export class PrefabTools implements ToolExecutor {
             });
 
             // 创建meta文件 - 先获取UUID
-            const assetInfo = await this.queryAssetInfoByUrl(finalPrefabPath);
+            // Use try-catch because queryAssetInfoByUrl uses queryUuidByUrl which doesn't exist in some 2.x versions
+            let assetInfo: any = null;
+            try {
+                assetInfo = await this.queryAssetInfoByUrl(finalPrefabPath);
+            } catch (err) {
+                // Fallback: queryUuidByUrl doesn't exist in this version, will create meta file directly
+            }
+
             if (assetInfo && assetInfo.uuid) {
                 await new Promise((resolve, reject) => {
                     Editor.assetdb.saveMeta(assetInfo.uuid, metaContent, (err: Error | null) => {

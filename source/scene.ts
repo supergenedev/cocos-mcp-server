@@ -808,7 +808,23 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(uuid);
+            // Recursively search for node by UUID
+            const findNodeByUuid = (node: any): any => {
+                if (node.uuid === uuid) {
+                    return node;
+                }
+                if (node.children) {
+                    for (const child of node.children) {
+                        const found = findNodeByUuid(child);
+                        if (found) {
+                            return found;
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const node = findNodeByUuid(scene);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, null);
