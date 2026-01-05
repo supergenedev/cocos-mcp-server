@@ -63,20 +63,6 @@ export class SceneTools implements ToolExecutor {
                 }
             },
             {
-                name: 'save_scene_as',
-                description: 'Save scene as new file',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        path: {
-                            type: 'string',
-                            description: 'Path to save the scene'
-                        }
-                    },
-                    required: ['path']
-                }
-            },
-            {
                 name: 'close_scene',
                 description: 'Close current scene',
                 inputSchema: {
@@ -113,8 +99,6 @@ export class SceneTools implements ToolExecutor {
                 return await this.saveScene();
             case 'create_scene':
                 return await this.createScene(args.sceneName, args.savePath);
-            case 'save_scene_as':
-                return await this.saveSceneAs(args.path);
             case 'close_scene':
                 return await this.closeScene();
             case 'get_scene_hierarchy':
@@ -416,25 +400,6 @@ export class SceneTools implements ToolExecutor {
         }
 
         return nodeInfo;
-    }
-
-    private async saveSceneAs(path: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            // In 2.x, save-as-scene opens a dialog
-            Editor.Ipc.sendToMain('scene:save-as-scene', (err: Error | null) => {
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({
-                        success: true,
-                        data: {
-                            path: path,
-                            message: `Scene save-as dialog opened`
-                        }
-                    });
-                }
-            });
-        });
     }
 
     private async closeScene(): Promise<ToolResponse> {
