@@ -333,7 +333,23 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(nodeUuid);
+            // Recursively search for node by UUID (same as queryNode)
+            const findNodeByUuid = (node: any): any => {
+                if (node.uuid === nodeUuid) {
+                    return node;
+                }
+                if (node.children) {
+                    for (const child of node.children) {
+                        const found = findNodeByUuid(child);
+                        if (found) {
+                            return found;
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const node = findNodeByUuid(scene);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
@@ -347,7 +363,13 @@ const methods: { [key: string]: (...any: any) => any } = {
             } else if (property === 'rotation') {
                 node.rotation = value;
             } else if (property === 'scale') {
-                node.setScale(value.x || 1, value.y || 1);
+                // In Cocos Creator 2.x, setScale might not work properly, use scaleX/scaleY directly
+                if (value.x !== undefined) {
+                    node.scaleX = value.x;
+                }
+                if (value.y !== undefined) {
+                    node.scaleY = value.y;
+                }
             } else if (property === 'active') {
                 node.active = value;
             } else if (property === 'name') {
