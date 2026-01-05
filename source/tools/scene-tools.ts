@@ -155,15 +155,15 @@ export class SceneTools implements ToolExecutor {
     }
 
     private async saveScene(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Ipc.sendToMain('scene:save-scene', (err: Error | null) => {
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, message: 'Scene saved successfully' });
-                }
-            });
-        });
+        Editor.Ipc.sendToPanel('scene', 'scene:stash-and-save');
+        // 0.5초 대기
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const result = await this.getCurrentScene();
+        if (result && result.success) {
+            return result;
+        } else {
+            return { success: false, error: result?.error || 'Failed to get scene info' };
+        }
     }
 
     private async createScene(sceneName: string, savePath: string): Promise<ToolResponse> {
