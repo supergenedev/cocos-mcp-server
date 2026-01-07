@@ -396,11 +396,11 @@ export class ProjectTools implements ToolExecutor {
     }
 
     /**
-     * Promise wrapper for Editor.assetdb.queryInfoByUuid (2.x API is callback-based)
+     * Promise wrapper for Editor.Ipc.sendToMain("asset-db:query-info-by-uuid") (2.x API is callback-based)
      */
     private queryAssetInfoByUuid(uuid: string): Promise<any> {
         return new Promise((resolve, reject) => {
-            Editor.assetdb.queryInfoByUuid(uuid, (err: Error | null, info: any) => {
+            Editor.Ipc.sendToMain("asset-db:query-info-by-uuid", uuid, (err: Error | null, info: any) => {
                 if (err) {
                     reject(err);
                 } else {

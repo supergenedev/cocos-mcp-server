@@ -208,9 +208,14 @@ export class ComponentTools implements ToolExecutor {
 
     private async addComponent(nodeUuid: string, componentType: string): Promise<ToolResponse> {
         return new Promise(async (resolve) => {
+            // RenderComponent를 상속한 컴포넌트 타입 목록
+            const renderComponentTypes = ['cc.Sprite', 'cc.Label', 'cc.Mask', 'cc.RichText'];
+            const isRenderComponent = renderComponentTypes.includes(componentType);
+
             // 先查找节点上是否已存在该组件
             const allComponentsInfo = await this.getComponents(nodeUuid);
             if (allComponentsInfo.success && allComponentsInfo.data?.components) {
+                // 동일한 컴포넌트가 이미 존재하는지 확인
                 const existingComponent = allComponentsInfo.data.components.find((comp: any) => comp.type === componentType);
                 if (existingComponent) {
                     resolve({
@@ -224,6 +229,25 @@ export class ComponentTools implements ToolExecutor {
                         }
                     });
                     return;
+                }
+
+                // RenderComponent를 상속한 컴포넌트 중복 체크
+                if (isRenderComponent) {
+                    const existingRenderComponent = allComponentsInfo.data.components.find((comp: any) =>
+                        renderComponentTypes.includes(comp.type)
+                    );
+                    if (existingRenderComponent) {
+                        resolve({
+                            success: false,
+                            error: `Cannot add '${componentType}' because the node already has a RenderComponent ('${existingRenderComponent.type}'). A node can only have one RenderComponent (cc.Sprite, cc.Label, cc.Mask, or cc.RichText).`,
+                            data: {
+                                nodeUuid: nodeUuid,
+                                componentType: componentType,
+                                existingRenderComponent: existingRenderComponent.type
+                            }
+                        });
+                        return;
+                    }
                 }
             }
             // 使用 2.x API 添加组件

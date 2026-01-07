@@ -6,6 +6,27 @@ module.paths.push(join(Editor.appPath, 'node_modules'));
 // Note: In Cocos Creator 2.x, 'cc' is available as a global variable in scene scripts
 // We don't need to require it like in 3.x
 
+/**
+ * Recursively find a node by UUID in the scene hierarchy
+ */
+function findNodeByUuid(scene: any, uuid: string): any {
+    const searchNode = (node: any): any => {
+        if (node.uuid === uuid) {
+            return node;
+        }
+        if (node.children) {
+            for (const child of node.children) {
+                const found = searchNode(child);
+                if (found) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    };
+    return searchNode(scene);
+}
+
 const methods: { [key: string]: (...any: any) => any } = {
     /**
      * Create a new scene
@@ -39,7 +60,7 @@ const methods: { [key: string]: (...any: any) => any } = {
             }
 
             // Find node by UUID
-            const node = scene.getChildByUuid(nodeUuid);
+            const node = findNodeByUuid(scene, nodeUuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
@@ -54,6 +75,28 @@ const methods: { [key: string]: (...any: any) => any } = {
                     event.reply(null, { success: false, error: `Component type ${componentType} not found` });
                 }
                 return;
+            }
+
+            // RenderComponent를 상속한 컴포넌트 타입 목록
+            const renderComponentTypes = ['cc.Sprite', 'cc.Label', 'cc.Mask', 'cc.RichText'];
+            const isRenderComponent = renderComponentTypes.includes(componentType);
+
+            // RenderComponent 중복 체크
+            if (isRenderComponent) {
+                const RenderComponentClass = cc.js.getClassByName('cc.RenderComponent');
+                if (RenderComponentClass) {
+                    const existingRenderComponent = node.getComponent(RenderComponentClass as new () => cc.Component);
+                    if (existingRenderComponent) {
+                        const existingType = existingRenderComponent.constructor.name || 'RenderComponent';
+                        if (event.reply) {
+                            event.reply(null, {
+                                success: false,
+                                error: `Cannot add '${componentType}' because the node already has a RenderComponent ('${existingType}'). A node can only have one RenderComponent (cc.Sprite, cc.Label, cc.Mask, or cc.RichText).`
+                            });
+                        }
+                        return;
+                    }
+                }
             }
 
             // Add component
@@ -85,7 +128,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(nodeUuid);
+            const node = findNodeByUuid(scene, nodeUuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
@@ -136,7 +179,7 @@ const methods: { [key: string]: (...any: any) => any } = {
             const node = new cc.Node(name);
 
             if (parentUuid) {
-                const parent = scene.getChildByUuid(parentUuid);
+                const parent = findNodeByUuid(scene, parentUuid);
                 if (parent) {
                     parent.addChild(node);
                 } else {
@@ -173,7 +216,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(nodeUuid);
+            const node = findNodeByUuid(scene, nodeUuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
@@ -264,8 +307,28 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByName(name);
-            if (!node) {
+            let foundNode: any = null;
+            const searchNode = (node: any) => {
+                if (node.name === name) {
+                    foundNode = node;
+                    return;
+                }
+
+                if (node.children) {
+                    for (const child of node.children) {
+                        searchNode(child);
+                        if (foundNode) return;
+                    }
+                }
+            };
+
+            scene.children.forEach((child: any) => {
+                if (!foundNode) {
+                    searchNode(child);
+                }
+            });
+
+            if (!foundNode) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with name ${name} not found` });
                 }
@@ -276,10 +339,10 @@ const methods: { [key: string]: (...any: any) => any } = {
                 event.reply(null, {
                     success: true,
                     data: {
-                        uuid: node.uuid,
-                        name: node.name,
-                        active: node.active,
-                        position: { x: node.x, y: node.y }
+                        uuid: foundNode.uuid,
+                        name: foundNode.name,
+                        active: foundNode.active,
+                        position: { x: foundNode.x, y: foundNode.y }
                     }
                 });
             }
@@ -333,23 +396,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            // Recursively search for node by UUID (same as queryNode)
-            const findNodeByUuid = (node: any): any => {
-                if (node.uuid === nodeUuid) {
-                    return node;
-                }
-                if (node.children) {
-                    for (const child of node.children) {
-                        const found = findNodeByUuid(child);
-                        if (found) {
-                            return found;
-                        }
-                    }
-                }
-                return null;
-            };
-
-            const node = findNodeByUuid(scene);
+            const node = findNodeByUuid(scene, nodeUuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
@@ -491,7 +538,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(nodeUuid);
+            const node = findNodeByUuid(scene, nodeUuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
@@ -532,7 +579,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(nodeUuid);
+            const node = findNodeByUuid(scene, nodeUuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
@@ -602,7 +649,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(nodeUuid);
+            const node = findNodeByUuid(scene, nodeUuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${nodeUuid} not found` });
@@ -673,7 +720,7 @@ const methods: { [key: string]: (...any: any) => any } = {
 
                 case 'node':
                     if (processedValue && typeof processedValue === 'object' && 'uuid' in processedValue) {
-                        const targetNode = scene.getChildByUuid(processedValue.uuid);
+                        const targetNode = findNodeByUuid(scene, processedValue.uuid);
                         if (targetNode) {
                             (component as any)[property] = targetNode;
                         } else {
@@ -689,7 +736,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                     // Component reference: processedValue should be a node UUID string
                     // We need to find the component on that node
                     if (typeof processedValue === 'string') {
-                        const targetNode = scene.getChildByUuid(processedValue);
+                        const targetNode = findNodeByUuid(scene, processedValue);
                         if (!targetNode) {
                             if (event.reply) {
                                 event.reply(null, { success: false, error: `Target node with UUID ${processedValue} not found` });
@@ -726,7 +773,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                     if (Array.isArray(processedValue)) {
                         const nodeArray = processedValue.map((item: any) => {
                             if (item && typeof item === 'object' && 'uuid' in item) {
-                                return scene.getChildByUuid(item.uuid);
+                                return findNodeByUuid(scene, item.uuid);
                             }
                             return null;
                         }).filter((n: any) => n !== null);
@@ -830,23 +877,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            // Recursively search for node by UUID
-            const findNodeByUuid = (node: any): any => {
-                if (node.uuid === uuid) {
-                    return node;
-                }
-                if (node.children) {
-                    for (const child of node.children) {
-                        const found = findNodeByUuid(child);
-                        if (found) {
-                            return found;
-                        }
-                    }
-                }
-                return null;
-            };
-
-            const node = findNodeByUuid(scene);
+            const node = findNodeByUuid(scene, uuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, null);
@@ -934,7 +965,7 @@ const methods: { [key: string]: (...any: any) => any } = {
 
             // Set parent
             if (options.parent) {
-                const parent = scene.getChildByUuid(options.parent);
+                const parent = findNodeByUuid(scene, options.parent);
                 if (parent) {
                     parent.addChild(node);
                 } else {
@@ -967,7 +998,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const parent = scene.getChildByUuid(parentUuid);
+            const parent = findNodeByUuid(scene, parentUuid);
             if (!parent) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Parent node with UUID ${parentUuid} not found` });
@@ -976,7 +1007,7 @@ const methods: { [key: string]: (...any: any) => any } = {
             }
 
             for (const childUuid of childUuids) {
-                const child = scene.getChildByUuid(childUuid);
+                const child = findNodeByUuid(scene, childUuid);
                 if (child) {
                     if (keepWorldTransform) {
                         // Store world position before reparenting (2.x version)
@@ -1015,7 +1046,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(uuid);
+            const node = findNodeByUuid(scene, uuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${uuid} not found` });
@@ -1049,7 +1080,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                 return;
             }
 
-            const node = scene.getChildByUuid(uuid);
+            const node = findNodeByUuid(scene, uuid);
             if (!node) {
                 if (event.reply) {
                     event.reply(null, { success: false, error: `Node with UUID ${uuid} not found` });

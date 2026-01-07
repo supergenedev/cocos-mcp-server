@@ -603,8 +603,14 @@ export class AssetAdvancedTools implements ToolExecutor {
                 assets,
                 async (asset: AssetInfo) => {
                     try {
-                        await this.promisifyAssetDb<any>((cb) => {
-                            Editor.assetdb.queryInfoByUuid(asset.uuid, cb);
+                        await new Promise<any>((resolve, reject) => {
+                            Editor.Ipc.sendToMain("asset-db:query-info-by-uuid", asset.uuid, (err: Error | null, info: any) => {
+                                if (err) {
+                                    reject(err);
+                                } else {
+                                    resolve(info);
+                                }
+                            });
                         });
 
                         return {
@@ -690,8 +696,14 @@ export class AssetAdvancedTools implements ToolExecutor {
 
                     if (includeMetadata) {
                         try {
-                            const metaInfo = await this.promisifyAssetDb<any>((cb) => {
-                                Editor.assetdb.queryMetaInfoByUuid(asset.uuid, cb);
+                            const metaInfo = await new Promise<any>((resolve, reject) => {
+                                Editor.Ipc.sendToMain("asset-db:query-meta-info-by-uuid", asset.uuid, (err: Error | null, info: any) => {
+                                    if (err) {
+                                        reject(err);
+                                    } else {
+                                        resolve(info);
+                                    }
+                                });
                             });
                             if (metaInfo && metaInfo.json) {
                                 entry.meta = metaInfo.json;

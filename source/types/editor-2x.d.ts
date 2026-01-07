@@ -66,11 +66,7 @@ declare namespace Editor {
     interface AssetDB {
         // Query APIs
         queryAssets(pattern: string, assetType: string | string[], callback: (err: Error | null, results: any[]) => void): void;
-        queryInfoByUuid(uuid: string, callback: (err: Error | null, info: any) => void): void;
-        queryMetaInfoByUuid(uuid: string, callback: (err: Error | null, info: any) => void): void;
         queryPathByUrl(url: string, callback: (err: Error | null, path: string) => void): void;
-        queryUuidByUrl(url: string, callback: (err: Error | null, uuid: string) => void): void;
-        queryUrlByUuid(uuid: string, callback: (err: Error | null, url: string) => void): void;
         urlToUuid(url: string): string | undefined;
         uuidToUrl(uuid: string): string | undefined;
 
