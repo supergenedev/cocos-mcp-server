@@ -27,6 +27,182 @@ function findNodeByUuid(scene: any, uuid: string): any {
     return searchNode(scene);
 }
 
+/**
+ * Serialize component properties for queryNode
+ * Returns only JSON-serializable values to avoid "An object could not be cloned" errors
+ */
+function serializeComponentProperties(comp: any, compType: string): Record<string, any> {
+    const properties: Record<string, any> = {};
+    const visited = new WeakSet(); // Track circular references
+
+    // Safety check
+    if (!comp || typeof comp !== 'object') {
+        return properties;
+    }
+
+    // Exclude internal properties
+    const excludeKeys = ['__type__', 'enabled', 'node', '_id', '__scriptAsset', 'uuid', 'name', '_name', '_objFlags', '_enabled', 'type', 'readonly', 'visible', 'cid', 'editor', 'extends', '_components', '_prefab', '__prefab'];
+
+    /**
+     * Safely serialize a value to JSON-compatible format
+     */
+    function serializeValue(val: any, depth: number = 0): any {
+        // Prevent infinite recursion
+        if (depth > 5) {
+            return null;
+        }
+
+        // Handle null/undefined
+        if (val === null || val === undefined) {
+            return null;
+        }
+
+        // Handle primitives
+        if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+            return val;
+        }
+
+        // Skip functions
+        if (typeof val === 'function') {
+            return null;
+        }
+
+        // Handle Cocos Creator types
+        if (val instanceof cc.Color) {
+            return {
+                r: val.r,
+                g: val.g,
+                b: val.b,
+                a: val.a,
+                __type__: 'cc.Color'
+            };
+        }
+
+        if (val instanceof cc.Vec2) {
+            return {
+                x: val.x,
+                y: val.y,
+                __type__: 'cc.Vec2'
+            };
+        }
+
+        if (val instanceof cc.Vec3) {
+            return {
+                x: val.x,
+                y: val.y,
+                z: val.z,
+                __type__: 'cc.Vec3'
+            };
+        }
+
+        // Handle Node references (convert to UUID only)
+        if (val instanceof cc.Node) {
+            return {
+                uuid: val.uuid || null,
+                __type__: 'cc.Node'
+            };
+        }
+
+        // Handle Component references (convert to UUID only)
+        if (val instanceof cc.Component) {
+            return {
+                uuid: val.uuid || null,
+                __type__: cc.js.getClassName(val) || 'cc.Component'
+            };
+        }
+
+        // Handle arrays
+        if (Array.isArray(val)) {
+            return val.map((item: any) => serializeValue(item, depth + 1)).filter((item: any) => item !== null);
+        }
+
+        // Handle objects
+        if (typeof val === 'object') {
+            // Check for circular references
+            if (visited.has(val)) {
+                return null;
+            }
+
+            // Check if it's a Size-like object
+            if ('width' in val && 'height' in val && Object.keys(val).length <= 3) {
+                return {
+                    width: typeof val.width === 'number' ? val.width : 0,
+                    height: typeof val.height === 'number' ? val.height : 0,
+                    __type__: 'cc.Size'
+                };
+            }
+
+            // Try to serialize object properties
+            try {
+                visited.add(val);
+                const result: any = {};
+                let propCount = 0;
+                const maxProps = 20; // Limit number of properties
+
+                for (const objKey in val) {
+                    if (propCount >= maxProps) break;
+
+                    // Skip internal properties
+                    if (objKey.startsWith('_') || objKey.startsWith('__')) {
+                        continue;
+                    }
+
+                    // Skip functions
+                    if (typeof val[objKey] === 'function') {
+                        continue;
+                    }
+
+                    try {
+                        const serialized = serializeValue(val[objKey], depth + 1);
+                        if (serialized !== null && serialized !== undefined) {
+                            result[objKey] = serialized;
+                            propCount++;
+                        }
+                    } catch (e) {
+                        // Skip properties that can't be serialized
+                        continue;
+                    }
+                }
+
+                visited.delete(val);
+                return Object.keys(result).length > 0 ? result : null;
+            } catch (e) {
+                visited.delete(val);
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    // Get all property names from the component
+    try {
+        for (const key in comp) {
+            if (excludeKeys.includes(key) || key.startsWith('_') || key.startsWith('__')) {
+                continue;
+            }
+
+            try {
+                const value = comp[key];
+                const serialized = serializeValue(value, 0);
+
+                if (serialized !== null && serialized !== undefined) {
+                    properties[key] = { value: serialized };
+                }
+            } catch (error) {
+                // Skip properties that can't be accessed or serialized
+                continue;
+            }
+        }
+    } catch (error) {
+        // If serialization fails, return empty properties object
+        // This prevents queryNode from failing completely
+        return properties;
+    }
+
+    return properties;
+}
+
 const methods: { [key: string]: (...any: any) => any } = {
     /**
      * Create a new scene
@@ -891,6 +1067,27 @@ const methods: { [key: string]: (...any: any) => any } = {
                 z: (node.position as any).z || 0
             } : { x: node.x, y: node.y, z: 0 };
 
+            const components = (node as any)._components ? (node as any)._components.map((comp: any) => {
+                try {
+                    const compType = cc.js.getClassName(comp);
+                    const compData: any = {
+                        __type__: compType,
+                        enabled: comp.enabled !== undefined ? comp.enabled : true,
+                        uuid: comp.uuid || null,
+                        value: serializeComponentProperties(comp, compType)
+                    };
+                    return compData;
+                } catch (compError: any) {
+                    // If component serialization fails, return minimal data
+                    return {
+                        __type__: 'Unknown',
+                        enabled: true,
+                        uuid: comp.uuid || null,
+                        value: {}
+                    };
+                }
+            }) : [];
+
             if (event.reply) {
                 event.reply(null, {
                     uuid: node.uuid,
@@ -901,11 +1098,7 @@ const methods: { [key: string]: (...any: any) => any } = {
                     scale: { value: { x: node.scaleX, y: node.scaleY, z: 1 } },
                     parent: { value: { uuid: node.parent?.uuid || null } },
                     children: node.children.map((child: any) => ({ uuid: child.uuid, name: child.name })),
-                    __comps__: (node as any)._components ? (node as any)._components.map((comp: any) => ({
-                        __type__: cc.js.getClassName(comp),
-                        enabled: comp.enabled,
-                        uuid: comp.uuid
-                    })) : [],
+                    __comps__: components,
                     layer: { value: 1073741824 },
                     mobility: { value: 0 }
                 });

@@ -978,6 +978,12 @@ export class ComponentTools implements ToolExecutor {
         try {
             const keys = Object.keys(propData);
 
+            // Special case: {value: ...} is a valid property descriptor from serializeComponentProperties
+            // This is the format returned by queryNode's serializeComponentProperties function
+            if (keys.length === 1 && keys[0] === 'value') {
+                return true;
+            }
+
             // 避免遍历简单的数值对象（如 {width: 200, height: 150}）
             const isSimpleValueObject = keys.every(key => {
                 const value = propData[key];
@@ -1043,11 +1049,12 @@ export class ComponentTools implements ToolExecutor {
                             try {
                                 const propKeys = Object.keys(propInfo);
                                 propertyValue = propKeys.includes('value') ? propInfo.value : propInfo;
+                                propertyExists = true;
                             } catch (error) {
                                 // 如果检查失败，直接使用propInfo
                                 propertyValue = propInfo;
+                                propertyExists = true;
                             }
-                            propertyExists = true;
                         }
                     }
                 }
@@ -1062,11 +1069,12 @@ export class ComponentTools implements ToolExecutor {
                             try {
                                 const propKeys = Object.keys(propInfo);
                                 propertyValue = propKeys.includes('value') ? propInfo.value : propInfo;
+                                propertyExists = true;
                             } catch (error) {
                                 // 如果检查失败，直接使用propInfo
                                 propertyValue = propInfo;
+                                propertyExists = true;
                             }
-                            propertyExists = true;
                         }
                     }
                 }
