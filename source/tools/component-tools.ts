@@ -469,7 +469,7 @@ export class ComponentTools implements ToolExecutor {
     }
 
     private async setComponentProperty(args: any): Promise<ToolResponse> {
-                        const { nodeUuid, componentType, property, propertyType, value } = args;
+        const { nodeUuid, componentType, property, propertyType, value } = args;
 
         return new Promise(async (resolve) => {
             try {
@@ -557,7 +557,17 @@ export class ComponentTools implements ToolExecutor {
                         processedValue = Number(value);
                         break;
                     case 'boolean':
-                        processedValue = Boolean(value);
+                        // Properly parse boolean values from strings
+                        if (typeof value === 'string') {
+                            const lowerValue = value.toLowerCase().trim();
+                            processedValue = lowerValue === 'true' || lowerValue === '1';
+                        } else if (typeof value === 'boolean') {
+                            processedValue = value;
+                        } else if (typeof value === 'number') {
+                            processedValue = value !== 0;
+                        } else {
+                            processedValue = Boolean(value);
+                        }
                         break;
                     case 'color':
                         if (typeof value === 'string') {
@@ -1321,6 +1331,10 @@ export class ComponentTools implements ToolExecutor {
                     console.log(`[verifyPropertyChange] Extracted actualValue from .value:`, JSON.stringify(actualValue));
                 } else {
                     console.log(`[verifyPropertyChange] No .value property found, using raw data`);
+                    // For enabled property, try to use componentInfo.data.enabled directly
+                    if (property === 'enabled' && componentInfo.data.enabled !== undefined) {
+                        actualValue = componentInfo.data.enabled;
+                    }
                 }
 
                 // 修复验证逻辑：检查实际值是否匹配期望值
