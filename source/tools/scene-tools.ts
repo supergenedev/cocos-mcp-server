@@ -56,18 +56,10 @@ export class SceneTools implements ToolExecutor {
                         },
                         savePath: {
                             type: 'string',
-                            description: 'Path to save the scene (e.g., db://assets/scenes/NewScene.scene)'
+                            description: 'Path to save the scene (e.g., db://assets/scenes/NewScene.fire)'
                         }
                     },
                     required: ['sceneName', 'savePath']
-                }
-            },
-            {
-                name: 'close_scene',
-                description: 'Close current scene',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
                 }
             },
             {
@@ -99,8 +91,6 @@ export class SceneTools implements ToolExecutor {
                 return await this.saveScene();
             case 'create_scene':
                 return await this.createScene(args.sceneName, args.savePath);
-            case 'close_scene':
-                return await this.closeScene();
             case 'get_scene_hierarchy':
                 return await this.getSceneHierarchy(args.includeComponents);
             default:
@@ -125,7 +115,7 @@ export class SceneTools implements ToolExecutor {
     private async getSceneList(): Promise<ToolResponse> {
         return new Promise((resolve) => {
             // In 2.x, use Editor.assetdb (lowercase)
-            Editor.assetdb.queryAssets('db://assets/**/*.scene', 'scene', (err, results) => {
+            Editor.assetdb.queryAssets('db://assets/**/*.fire', 'scene', (err, results) => {
                 if (err) {
                     resolve({ success: false, error: err.message });
                     return;
@@ -168,164 +158,11 @@ export class SceneTools implements ToolExecutor {
 
     private async createScene(sceneName: string, savePath: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            // 确保路径以.scene结尾
-            const fullPath = savePath.endsWith('.scene') ? savePath : `${savePath}/${sceneName}.scene`;
+            // 确保路径以.fire结尾
+            const fullPath = savePath.endsWith('.fire') ? savePath : `${savePath}/${sceneName}.fire`;
 
             // 使用正确的Cocos Creator 3.8场景格式
-            const sceneContent = JSON.stringify([
-                {
-                    "__type__": "cc.SceneAsset",
-                    "_name": sceneName,
-                    "_objFlags": 0,
-                    "__editorExtras__": {},
-                    "_native": "",
-                    "scene": {
-                        "__id__": 1
-                    }
-                },
-                {
-                    "__type__": "cc.Scene",
-                    "_name": sceneName,
-                    "_objFlags": 0,
-                    "__editorExtras__": {},
-                    "_parent": null,
-                    "_children": [],
-                    "_active": true,
-                    "_components": [],
-                    "_prefab": null,
-                    "_lpos": {
-                        "__type__": "cc.Vec3",
-                        "x": 0,
-                        "y": 0,
-                        "z": 0
-                    },
-                    "_lrot": {
-                        "__type__": "cc.Quat",
-                        "x": 0,
-                        "y": 0,
-                        "z": 0,
-                        "w": 1
-                    },
-                    "_lscale": {
-                        "__type__": "cc.Vec3",
-                        "x": 1,
-                        "y": 1,
-                        "z": 1
-                    },
-                    "_mobility": 0,
-                    "_layer": 1073741824,
-                    "_euler": {
-                        "__type__": "cc.Vec3",
-                        "x": 0,
-                        "y": 0,
-                        "z": 0
-                    },
-                    "autoReleaseAssets": false,
-                    "_globals": {
-                        "__id__": 2
-                    },
-                    "_id": "scene"
-                },
-                {
-                    "__type__": "cc.SceneGlobals",
-                    "ambient": {
-                        "__id__": 3
-                    },
-                    "skybox": {
-                        "__id__": 4
-                    },
-                    "fog": {
-                        "__id__": 5
-                    },
-                    "octree": {
-                        "__id__": 6
-                    }
-                },
-                {
-                    "__type__": "cc.AmbientInfo",
-                    "_skyColorHDR": {
-                        "__type__": "cc.Vec4",
-                        "x": 0.2,
-                        "y": 0.5,
-                        "z": 0.8,
-                        "w": 0.520833
-                    },
-                    "_skyColor": {
-                        "__type__": "cc.Vec4",
-                        "x": 0.2,
-                        "y": 0.5,
-                        "z": 0.8,
-                        "w": 0.520833
-                    },
-                    "_skyIllumHDR": 20000,
-                    "_skyIllum": 20000,
-                    "_groundAlbedoHDR": {
-                        "__type__": "cc.Vec4",
-                        "x": 0.2,
-                        "y": 0.2,
-                        "z": 0.2,
-                        "w": 1
-                    },
-                    "_groundAlbedo": {
-                        "__type__": "cc.Vec4",
-                        "x": 0.2,
-                        "y": 0.2,
-                        "z": 0.2,
-                        "w": 1
-                    }
-                },
-                {
-                    "__type__": "cc.SkyboxInfo",
-                    "_envLightingType": 0,
-                    "_envmapHDR": null,
-                    "_envmap": null,
-                    "_envmapLodCount": 0,
-                    "_diffuseMapHDR": null,
-                    "_diffuseMap": null,
-                    "_enabled": false,
-                    "_useHDR": true,
-                    "_editableMaterial": null,
-                    "_reflectionHDR": null,
-                    "_reflectionMap": null,
-                    "_rotationAngle": 0
-                },
-                {
-                    "__type__": "cc.FogInfo",
-                    "_type": 0,
-                    "_fogColor": {
-                        "__type__": "cc.Color",
-                        "r": 200,
-                        "g": 200,
-                        "b": 200,
-                        "a": 255
-                    },
-                    "_enabled": false,
-                    "_fogDensity": 0.3,
-                    "_fogStart": 0.5,
-                    "_fogEnd": 300,
-                    "_fogAtten": 5,
-                    "_fogTop": 1.5,
-                    "_fogRange": 1.2,
-                    "_accurate": false
-                },
-                {
-                    "__type__": "cc.OctreeInfo",
-                    "_enabled": false,
-                    "_minPos": {
-                        "__type__": "cc.Vec3",
-                        "x": -1024,
-                        "y": -1024,
-                        "z": -1024
-                    },
-                    "_maxPos": {
-                        "__type__": "cc.Vec3",
-                        "x": 1024,
-                        "y": 1024,
-                        "z": 1024
-                    },
-                    "_depth": 8
-                }
-            ], null, 2);
+            const sceneContent = JSON.stringify([{ "__type__": "cc.SceneAsset", "_name": "", "_objFlags": 0, "_native": "", "scene": { "__id__": 1 } }, { "__type__": "cc.Scene", "_objFlags": 0, "_parent": null, "_children": [{ "__id__": 2 }], "_active": true, "_components": [], "_prefab": null, "_opacity": 255, "_color": { "__type__": "cc.Color", "r": 255, "g": 255, "b": 255, "a": 255 }, "_contentSize": { "__type__": "cc.Size", "width": 0, "height": 0 }, "_anchorPoint": { "__type__": "cc.Vec2", "x": 0, "y": 0 }, "_trs": { "__type__": "TypedArray", "ctor": "Float64Array", "array": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1] }, "_is3DNode": true, "_groupIndex": 0, "groupIndex": 0, "autoReleaseAssets": false, "_id": "324247e8-c584-495d-87b3-015a69fee444" }, { "__type__": "cc.Node", "_name": "Canvas", "_objFlags": 0, "_parent": { "__id__": 1 }, "_children": [{ "__id__": 3 }], "_active": true, "_components": [{ "__id__": 5 }, { "__id__": 6 }], "_prefab": null, "_opacity": 255, "_color": { "__type__": "cc.Color", "r": 255, "g": 255, "b": 255, "a": 255 }, "_contentSize": { "__type__": "cc.Size", "width": 960, "height": 640 }, "_anchorPoint": { "__type__": "cc.Vec2", "x": 0.5, "y": 0.5 }, "_trs": { "__type__": "TypedArray", "ctor": "Float64Array", "array": [480, 320, 0, 0, 0, 0, 1, 1, 1, 1] }, "_eulerAngles": { "__type__": "cc.Vec3", "x": 0, "y": 0, "z": 0 }, "_skewX": 0, "_skewY": 0, "_is3DNode": false, "_groupIndex": 0, "groupIndex": 0, "_id": "a5esZu+45LA5mBpvttspPD" }, { "__type__": "cc.Node", "_name": "Main Camera", "_objFlags": 0, "_parent": { "__id__": 2 }, "_children": [], "_active": true, "_components": [{ "__id__": 4 }], "_prefab": null, "_opacity": 255, "_color": { "__type__": "cc.Color", "r": 255, "g": 255, "b": 255, "a": 255 }, "_contentSize": { "__type__": "cc.Size", "width": 960, "height": 640 }, "_anchorPoint": { "__type__": "cc.Vec2", "x": 0.5, "y": 0.5 }, "_trs": { "__type__": "TypedArray", "ctor": "Float64Array", "array": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1] }, "_eulerAngles": { "__type__": "cc.Vec3", "x": 0, "y": 0, "z": 0 }, "_skewX": 0, "_skewY": 0, "_is3DNode": false, "_groupIndex": 0, "groupIndex": 0, "_id": "e1WoFrQ79G7r4ZuQE3HlNb" }, { "__type__": "cc.Camera", "_name": "", "_objFlags": 0, "node": { "__id__": 3 }, "_enabled": true, "_cullingMask": 4294967295, "_clearFlags": 7, "_backgroundColor": { "__type__": "cc.Color", "r": 0, "g": 0, "b": 0, "a": 255 }, "_depth": -1, "_zoomRatio": 1, "_targetTexture": null, "_fov": 60, "_orthoSize": 10, "_nearClip": 1, "_farClip": 4096, "_ortho": true, "_rect": { "__type__": "cc.Rect", "x": 0, "y": 0, "width": 1, "height": 1 }, "_renderStages": 1, "_alignWithScreen": true, "_id": "81GN3uXINKVLeW4+iKSlim" }, { "__type__": "cc.Canvas", "_name": "", "_objFlags": 0, "node": { "__id__": 2 }, "_enabled": true, "_designResolution": { "__type__": "cc.Size", "width": 720, "height": 1280 }, "_fitWidth": false, "_fitHeight": true, "_id": "59Cd0ovbdF4byw5sbjJDx7" }, { "__type__": "cc.Widget", "_name": "", "_objFlags": 0, "node": { "__id__": 2 }, "_enabled": true, "alignMode": 1, "_target": null, "_alignFlags": 45, "_left": 0, "_right": 0, "_top": 0, "_bottom": 0, "_verticalCenter": 0, "_horizontalCenter": 0, "_isAbsLeft": true, "_isAbsRight": true, "_isAbsTop": true, "_isAbsBottom": true, "_isAbsHorizontalCenter": true, "_isAbsVerticalCenter": true, "_originalWidth": 0, "_originalHeight": 0, "_id": "29zXboiXFBKoIV4PQ2liTe" }], null, 2);
 
             // In 2.x, use Editor.assetdb.create (lowercase)
             Editor.assetdb.create(fullPath, sceneContent, (err, result) => {
@@ -400,20 +237,5 @@ export class SceneTools implements ToolExecutor {
         }
 
         return nodeInfo;
-    }
-
-    private async closeScene(): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            Editor.Ipc.sendToMain('scene:close-scene', (err: Error | null) => {
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({
-                        success: true,
-                        message: 'Scene closed successfully'
-                    });
-                }
-            });
-        });
     }
 }

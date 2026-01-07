@@ -112,3 +112,10 @@ declare namespace Editor {
     function info(...args: any[]): void;
 }
 
+/**
+ * _Scene is a special singleton available in scene scripts
+ * It controls the scene instance loaded in the scene editor
+ */
+declare const _Scene: {
+    loadSceneByUuid(uuid: string, callback: (error: Error | null) => void): void;
+};
