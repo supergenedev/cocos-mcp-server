@@ -411,32 +411,30 @@ export class ProjectTools implements ToolExecutor {
     }
 
     /**
-     * Promise wrapper for Editor.assetdb.queryUuidByUrl (2.x API is callback-based)
+     * Promise wrapper for Editor.assetdb.urlToUuid (2.x API is callback-based)
      */
     private queryUuidByUrl(url: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            Editor.assetdb.queryUuidByUrl(url, (err: Error | null, uuid: string) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(uuid);
-                }
-            });
+            const uuid = Editor.assetdb.urlToUuid(url);
+            if (uuid === undefined) {
+                reject(new Error(`UUID not found for URL: ${url}`));
+            } else {
+                resolve(uuid);
+            }
         });
     }
 
     /**
-     * Promise wrapper for Editor.assetdb.queryUrlByUuid (2.x API is callback-based)
+     * Promise wrapper for Editor.assetdb.uuidToUrl (2.x API is callback-based)
      */
     private queryUrlByUuid(uuid: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            Editor.assetdb.queryUrlByUuid(uuid, (err: Error | null, url: string) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(url);
-                }
-            });
+            const url = Editor.assetdb.uuidToUrl(uuid);
+            if (url === undefined) {
+                reject(new Error(`URL not found for UUID: ${uuid}`));
+            } else {
+                resolve(url);
+            }
         });
     }
 

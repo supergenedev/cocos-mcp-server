@@ -240,17 +240,16 @@ export class PrefabTools implements ToolExecutor {
     }
 
     /**
-     * Promise wrapper for Editor.assetdb.queryUuidByUrl + queryInfoByUuid
+     * Promise wrapper for Editor.assetdb.urlToUuid + queryInfoByUuid
      */
     private queryAssetInfoByUrl(url: string): Promise<any> {
         return new Promise((resolve, reject) => {
-            Editor.assetdb.queryUuidByUrl(url, (err: Error | null, uuid: string) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                this.queryAssetInfoByUuid(uuid).then(resolve).catch(reject);
-            });
+            const uuid = Editor.assetdb.urlToUuid(url);
+            if (uuid === undefined) {
+                reject(new Error(`UUID not found for URL: ${url}`));
+                return;
+            }
+            this.queryAssetInfoByUuid(uuid).then(resolve).catch(reject);
         });
     }
 
@@ -278,27 +277,18 @@ export class PrefabTools implements ToolExecutor {
 
     private async loadPrefab(prefabPath: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.assetdb.queryUuidByUrl(prefabPath, (err: Error | null, uuid: string) => {
-                if (err || !uuid) {
-                    resolve({ success: false, error: err?.message || 'Prefab not found' });
-                    return;
+            const uuid = Editor.assetdb.urlToUuid(prefabPath);
+            if (uuid === undefined) {
+                resolve({ success: false, error: 'Prefab not found' });
+                return;
+            }
+
+            resolve({
+                success: true,
+                data: {
+                    uuid: uuid,
+                    message: 'Prefab info loaded successfully'
                 }
-
-                Editor.assetdb.queryInfoByUuid(uuid, (err2: Error | null, assetInfo: any) => {
-                    if (err2 || !assetInfo) {
-                        resolve({ success: false, error: err2?.message || 'Failed to load prefab info' });
-                        return;
-                    }
-
-                    resolve({
-                        success: true,
-                        data: {
-                            uuid: assetInfo.uuid,
-                            name: assetInfo.name,
-                            message: 'Prefab info loaded successfully'
-                        }
-                    });
-                });
             });
         });
     }
@@ -1405,7 +1395,6 @@ export class PrefabTools implements ToolExecutor {
                 });
 
                 const info: PrefabInfo = {
-                    name: metaInfo.name || assetInfo.name,
                     uuid: metaInfo.uuid || assetInfo.uuid,
                     path: prefabPath,
                     folder: prefabPath.substring(0, prefabPath.lastIndexOf('/')),

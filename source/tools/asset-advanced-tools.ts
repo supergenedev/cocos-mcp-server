@@ -59,13 +59,12 @@ export class AssetAdvancedTools implements ToolExecutor {
      */
     private convertUrlToUuid(url: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            Editor.assetdb.queryUuidByUrl(url, (err: Error | null, uuid: string) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(uuid);
-                }
-            });
+            const uuid = Editor.assetdb.urlToUuid(url);
+            if (uuid === undefined) {
+                reject(new Error(`UUID not found for URL: ${url}`));
+            } else {
+                resolve(uuid);
+            }
         });
     }
 
@@ -74,13 +73,12 @@ export class AssetAdvancedTools implements ToolExecutor {
      */
     private convertUuidToUrl(uuid: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            Editor.assetdb.queryUrlByUuid(uuid, (err: Error | null, url: string) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(url);
-                }
-            });
+            const url = Editor.assetdb.uuidToUrl(uuid);
+            if (url === undefined) {
+                reject(new Error(`URL not found for UUID: ${uuid}`));
+            } else {
+                resolve(url);
+            }
         });
     }
 

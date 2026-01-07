@@ -132,16 +132,35 @@ export class SceneTools implements ToolExecutor {
     }
 
     private async openScene(scenePath: string): Promise<ToolResponse> {
-        return new Promise((resolve) => {
-            // In 2.x, use Editor.Ipc to send messages
-            Editor.Ipc.sendToMain('scene:open-scene', scenePath, (err: Error | null) => {
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, message: `Scene opened: ${scenePath}` });
+        try {
+            // Convert scenePath (URL) to UUID if needed
+            const uuid = await new Promise<string>((resolve, reject) => {
+                // If it's already a UUID (32 hex characters with optional hyphens)
+                if (/^[0-9a-f]{32}$/i.test(scenePath.replace(/-/g, ''))) {
+                    resolve(scenePath);
+                    return;
                 }
+                // Otherwise, query UUID by URL using IPC
+                Editor.Ipc.sendToMain("asset-db:query-uuid-by-url", scenePath, (err: Error | null, uuid: string) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(uuid);
+                    }
+                });
             });
-        });
+
+            // Use callSceneScriptAsync to call loadSceneByUuid in scene script
+            const result = await callSceneScriptAsync('cocos-mcp-server', 'loadSceneByUuid', uuid);
+
+            if (result && result.success) {
+                return { success: true, message: `Scene opened: ${scenePath}` };
+            } else {
+                return { success: false, error: result?.error || 'Failed to open scene' };
+            }
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     }
 
     private async saveScene(): Promise<ToolResponse> {

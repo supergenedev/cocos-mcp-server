@@ -1431,6 +1431,36 @@ const methods: { [key: string]: (...any: any) => any } = {
                 event.reply(null, { success: false, error: error.message });
             }
         }
+    },
+
+    /**
+     * Load scene by UUID
+     * Uses _Scene.loadSceneByUuid which is only available in scene scripts
+     */
+    loadSceneByUuid(event: any, uuid: string) {
+        try {
+            // _Scene은 scene script에서만 사용 가능한 전역 객체
+            if (typeof _Scene === 'undefined' || !_Scene.loadSceneByUuid) {
+                if (event.reply) {
+                    event.reply(null, { success: false, error: '_Scene.loadSceneByUuid is not available' });
+                }
+                return;
+            }
+
+            _Scene.loadSceneByUuid(uuid, (error: Error | null) => {
+                if (event.reply) {
+                    if (error) {
+                        event.reply(null, { success: false, error: error.message });
+                    } else {
+                        event.reply(null, { success: true, message: `Scene loaded successfully: ${uuid}` });
+                    }
+                }
+            });
+        } catch (error: any) {
+            if (event.reply) {
+                event.reply(null, { success: false, error: error.message });
+            }
+        }
     }
 };
 

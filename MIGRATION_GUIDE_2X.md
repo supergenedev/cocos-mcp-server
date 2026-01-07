@@ -45,19 +45,6 @@ Editor.assetdb.refresh(url, callback)
 // Note: queryMetas, import, delete functions do NOT exist in 2.x
 ```
 
-#### Scene Management
-```typescript
-// 3.x
-Editor.Message.request('scene', 'open-scene', uuid)
-Editor.Message.request('scene', 'save-scene')
-Editor.Message.request('scene', 'close-scene')
-
-// 2.x
-Editor.Ipc.sendToMain('scene:open-scene', path, callback)
-Editor.Ipc.sendToMain('scene:save-scene', callback)
-Editor.Ipc.sendToMain('scene:close-scene', callback)
-```
-
 ### cc Runtime API Changes
 
 #### Accessing cc namespace

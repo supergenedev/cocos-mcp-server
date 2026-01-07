@@ -1003,17 +1003,16 @@ export class NodeTools implements ToolExecutor {
     }
 
     /**
-     * Promise wrapper for Editor.assetdb.queryInfoByUrl (2.x API is callback-based)
+     * Promise wrapper for Editor.assetdb.urlToUuid (2.x API is callback-based)
      */
     private queryAssetInfoByUrl(url: string): Promise<any> {
         return new Promise((resolve, reject) => {
-            Editor.assetdb.queryUuidByUrl(url, (err: Error | null, uuid: string) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    this.queryAssetInfoByUuid(uuid).then(resolve).catch(reject);
-                }
-            });
+            const uuid = Editor.assetdb.urlToUuid(url);
+            if (uuid === undefined) {
+                reject(new Error(`UUID not found for URL: ${url}`));
+            } else {
+                this.queryAssetInfoByUuid(uuid).then(resolve).catch(reject);
+            }
         });
     }
 }
