@@ -595,7 +595,7 @@ export class ProjectTools implements ToolExecutor {
             // 添加类型过滤
             if (type !== 'all') {
                 const typeExtensions: Record<string, string> = {
-                    'scene': '.scene',
+                    'scene': '.fire',
                     'prefab': '.prefab',
                     'script': '.{ts,js}',
                     'texture': '.{png,jpg,jpeg,gif,tga,bmp,psd}',

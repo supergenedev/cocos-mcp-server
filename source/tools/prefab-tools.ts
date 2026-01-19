@@ -1542,14 +1542,28 @@ export class PrefabTools implements ToolExecutor {
                 // 修改预制体数据
                 const modifiedData = this.modifyPrefabForDuplication(sourceContent.data, newPrefabName, newUuid);
 
-                // 创建新的meta数据
-                const newMetaData = this.createMetaData(newPrefabName || 'DuplicatedPrefab', newUuid);
+                // 将修改后的数据转换为JSON字符串
+                const prefabContent = JSON.stringify(modifiedData, null, 2);
 
-                // 预制体复制功能暂时禁用，因为涉及复杂的序列化格式
+                // 使用 assetdb.create 创建新的预制体文件 (meta文件会自动创建)
+                const createResult = await this.createAssetWithAssetDB(targetPrefabPath, prefabContent);
+                if (!createResult.success) {
+                    resolve({
+                        success: false,
+                        error: `创建预制体文件失败: ${createResult.error}`
+                    });
+                    return;
+                }
+
+                // 成功返回
                 resolve({
-                    success: false,
-                    error: '预制体复制功能暂时不可用',
-                    instruction: '请在 Cocos Creator 编辑器中手动复制预制体：\n1. 在资源管理器中选择要复制的预制体\n2. 右键选择复制\n3. 在目标位置粘贴'
+                    success: true,
+                    data: {
+                        prefabPath: targetPrefabPath,
+                        prefabUuid: createResult.data?.uuid || newUuid,
+                        prefabName: newPrefabName || 'DuplicatedPrefab',
+                        message: `预制体已成功复制到 ${targetPrefabPath}`
+                    }
                 });
 
             } catch (error) {
