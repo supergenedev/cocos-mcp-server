@@ -438,20 +438,6 @@ export class ProjectTools implements ToolExecutor {
         });
     }
 
-    /**
-     * Promise wrapper for Editor.assetdb.queryPathByUrl (2.x API is callback-based)
-     */
-    private queryPathByUrl(url: string): Promise<string> {
-        return new Promise((resolve, reject) => {
-            Editor.assetdb.queryPathByUrl(url, (err: Error | null, path: string) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(path);
-                }
-            });
-        });
-    }
 
     /**
      * Get asset info by URL (converts URL to UUID first)
@@ -632,14 +618,23 @@ export class ProjectTools implements ToolExecutor {
                     return;
                 }
 
-                const assets = results.map(asset => ({
-                    name: asset.name,
-                    uuid: asset.uuid,
-                    path: asset.url,
-                    type: asset.type,
-                    size: asset.size || 0,
-                    isDirectory: asset.isDirectory || false
-                }));
+                const assets = results.map(asset => {
+                    // Extract name from URL if name is not available
+                    let assetName = asset.name;
+                    if (!assetName && asset.url) {
+                        // Extract filename from URL (e.g., "db://assets/scene/intro.fire" -> "intro.fire")
+                        const urlPath = asset.url.replace(/^db:\/\//, '');
+                        assetName = path.basename(urlPath);
+                    }
+                    return {
+                        name: assetName || '',
+                        uuid: asset.uuid,
+                        path: asset.url,
+                        type: asset.type,
+                        size: asset.size || 0,
+                        isDirectory: asset.isDirectory || false
+                    };
+                });
 
                 resolve({
                     success: true,
@@ -726,7 +721,11 @@ export class ProjectTools implements ToolExecutor {
         return new Promise(async (resolve) => {
             try {
                 // 2.x doesn't have direct copy API, so we need to read and create
-                const sourcePath = await this.queryPathByUrl(source);
+                const sourcePath = Editor.assetdb.urlToFspath(source);
+                if (!sourcePath) {
+                    resolve({ success: false, error: 'Source asset URL not found' });
+                    return;
+                }
                 if (!fs.existsSync(sourcePath)) {
                     resolve({ success: false, error: 'Source asset not found' });
                     return;
@@ -820,7 +819,11 @@ export class ProjectTools implements ToolExecutor {
         return new Promise(async (resolve) => {
             try {
                 // 2.x doesn't have direct save-asset API, so we need to write to file system and refresh
-                const assetPath = await this.queryPathByUrl(url);
+                const assetPath = Editor.assetdb.urlToFspath(url);
+                if (!assetPath) {
+                    resolve({ success: false, error: 'Asset URL not found' });
+                    return;
+                }
 
                 fs.writeFileSync(assetPath, content, 'utf8');
 
@@ -866,7 +869,11 @@ export class ProjectTools implements ToolExecutor {
     private async queryAssetPath(url: string): Promise<ToolResponse> {
         return new Promise(async (resolve) => {
             try {
-                const path = await this.queryPathByUrl(url);
+                const path = Editor.assetdb.urlToFspath(url);
+                if (!path) {
+                    resolve({ success: false, error: 'Asset path not found' });
+                    return;
+                }
                 resolve({
                     success: true,
                     data: {
@@ -924,6 +931,7 @@ export class ProjectTools implements ToolExecutor {
             try {
                 // Get all assets in the specified folder
                 const allAssetsResponse = await this.getAssets(assetType, folder);
+                
                 if (!allAssetsResponse.success || !allAssetsResponse.data) {
                     resolve({
                         success: false,
