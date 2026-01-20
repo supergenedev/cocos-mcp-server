@@ -69,6 +69,7 @@ declare namespace Editor {
         queryPathByUrl(url: string, callback: (err: Error | null, path: string) => void): void;
         urlToUuid(url: string): string | undefined;
         uuidToUrl(uuid: string): string | undefined;
+        urlToFspath(url: string): string | null;
 
         // File system APIs
         explore(url: string): void;
