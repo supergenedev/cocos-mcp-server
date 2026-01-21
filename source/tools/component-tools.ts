@@ -112,7 +112,7 @@ export class ComponentTools implements ToolExecutor {
                         value: {
                             description: 'Property value - Use the corresponding data format based on propertyType:\n\n' +
                                 '📝 Basic Data Types:\n' +
-                                '• string: "Hello World" (text string)\n' +
+                                '• string: "Hello World" (text string, uuid string e.g. "8178a046-fc0f-405a-8d84-63e60aa7280b")\n' +
                                 '• number/integer/float: 42 or 3.14 (numeric value)\n' +
                                 '• boolean: true or false (boolean value)\n\n' +
                                 '🎨 Color Type:\n' +
@@ -125,20 +125,20 @@ export class ComponentTools implements ToolExecutor {
                                 '• size: {"width":100,"height":50} (size dimensions)\n\n' +
                                 '🔗 Reference Types (using UUID strings):\n' +
                                 '• node: "target-node-uuid" (node reference)\n' +
-                                '  How to get: Use get_all_nodes or find_node_by_name to get node UUIDs\n' +
+                                '  How to get: Use get_all_nodes or find_node_by_name to get node UUIDs. (string type. Do NOT convert to number.)\n' +
                                 '• component: "target-node-uuid" (component reference)\n' +
                                 '  How it works: \n' +
-                                '    1. Provide the UUID of the NODE that contains the target component\n' +
+                                '    1. Provide the UUID of the NODE that contains the target component. (string type. Do NOT convert to number.)\n' +
                                 '    2. System auto-detects required component type from property metadata\n' +
                                 '    3. Finds the component on target node and gets its scene __id__\n' +
                                 '    4. Sets reference using the scene __id__ (not node UUID)\n' +
                                 '  Example: value="label-node-uuid" will find cc.Label and use its scene ID\n' +
                                 '• spriteFrame: "spriteframe-uuid" (sprite frame asset)\n' +
-                                '  How to get: Check asset database or use asset browser\n' +
+                                '  How to get: Check asset database or use asset browser. (string type. Do NOT convert to number.)\n' +
                                 '• prefab: "prefab-uuid" (prefab asset)\n' +
-                                '  How to get: Check asset database or use asset browser\n' +
+                                '  How to get: Check asset database or use asset browser. (string type. Do NOT convert to number.)\n' +
                                 '• asset: "asset-uuid" (generic asset reference)\n' +
-                                '  How to get: Check asset database or use asset browser\n\n' +
+                                '  How to get: Check asset database or use asset browser. (string type. Do NOT convert to number.)\n\n' +
                                 '📋 Array Types:\n' +
                                 '• nodeArray: ["uuid1","uuid2"] (array of node UUIDs)\n' +
                                 '• colorArray: [{"r":255,"g":0,"b":0,"a":255}] (array of colors)\n' +
