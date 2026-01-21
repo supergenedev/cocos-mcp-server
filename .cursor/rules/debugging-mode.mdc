@@ -1,9 +1,7 @@
 ---
-description: Cocos Creator MCP 서버 프로젝트의 디버깅 모드 및 환경 제약사항 가이드. Electron Extension 환경에서 Node.js v14.16.0 제약사항, fetch API 사용 금지, 외부 패키지 제한, 절대 경로 로깅 등의 규칙을 제공합니다.
+description: Apply this rule when use debbuging agent
+extension: no fetch API, no external npm packages, and absolute paths required for log files.
 alwaysApply: false
-globs:
-  - "**/*.ts"
-  - "**/*.js"
 ---
 
 # 디버깅 모드 가이드
@@ -76,15 +74,15 @@ import * as os from 'os';
 function writeLog(message: string): void {
   const logDir = path.join(os.homedir(), '.cocos-mcp-server');
   const logPath = path.join(logDir, 'debug.log');
-  
+
   // 디렉토리가 없으면 생성
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
   }
-  
+
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}\n`;
-  
+
   fs.appendFileSync(logPath, logMessage, 'utf8');
 }
 ```
