@@ -217,6 +217,10 @@ declare namespace cc {
         function releaseResDir(url: string, type?: typeof cc.Asset): void;
     }
 
+    namespace assetManager {
+        function loadAny(uuid: string, callback: (err: Error | null, result: Asset | SpriteFrame | Prefab | null) => void): void;
+    }
+
     namespace js {
         function getClassName(obj: any): string;
         function getClassByName(classname: string): Function | null;

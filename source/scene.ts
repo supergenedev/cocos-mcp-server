@@ -937,13 +937,45 @@ const methods: { [key: string]: (...any: any) => any } = {
                 case 'spriteFrame':
                 case 'prefab':
                 case 'asset':
-                    // Asset references: processedValue should have uuid property
-                    if (processedValue && typeof processedValue === 'object' && 'uuid' in processedValue) {
-                        // In 2.x, we need to load the asset by UUID
-                        // This is a simplified version - actual implementation would need asset loading
-                        (component as any)[property] = processedValue;
+                    // Asset references: processedValue should have uuid property or be a string UUID
+                    let assetUuid: string | null = null;
+                    if (typeof processedValue === 'string') {
+                        assetUuid = processedValue;
+                    } else if (processedValue && typeof processedValue === 'object' && 'uuid' in processedValue) {
+                        assetUuid = processedValue.uuid;
                     }
-                    break;
+
+                    if (!assetUuid) {
+                        if (event.reply) {
+                            event.reply(null, { success: false, error: `Invalid UUID for ${propertyType}: ${JSON.stringify(processedValue)}` });
+                        }
+                        return;
+                    }
+
+                    // Load asset using cc.assetManager.loadAny
+                    cc.assetManager.loadAny(assetUuid, (err: Error | null, result: cc.Asset | cc.SpriteFrame | cc.Prefab | null) => {
+                        if (err) {
+                            if (event.reply) {
+                                event.reply(null, { success: false, error: `Failed to load asset with UUID ${assetUuid}: ${err.message}` });
+                            }
+                            return;
+                        }
+
+                        if (!result) {
+                            if (event.reply) {
+                                event.reply(null, { success: false, error: `Asset with UUID ${assetUuid} not found` });
+                            }
+                            return;
+                        }
+
+                        // Assign loaded asset to component property
+                        (component as any)[property] = result;
+
+                        if (event.reply) {
+                            event.reply(null, { success: true, message: `Component property '${property}' updated successfully with asset UUID ${assetUuid}` });
+                        }
+                    });
+                    return; // Return early since we're handling async callback
 
                 case 'nodeArray':
                     if (Array.isArray(processedValue)) {
