@@ -88,7 +88,6 @@ export class ToolManager {
             const { PrefabTools } = require('./prefab-tools');
             const { ProjectTools } = require('./project-tools');
             const { DebugTools } = require('./debug-tools');
-            const { PreferencesTools } = require('./preferences-tools');
             const { ServerTools } = require('./server-tools');
             const { BroadcastTools } = require('./broadcast-tools');
             const { SceneAdvancedTools } = require('./scene-advanced-tools');
@@ -105,7 +104,6 @@ export class ToolManager {
                 prefab: new PrefabTools(),
                 project: new ProjectTools(),
                 debug: new DebugTools(),
-                preferences: new PreferencesTools(),
                 server: new ServerTools(),
                 broadcast: new BroadcastTools(),
                 sceneAdvanced: new SceneAdvancedTools(),
@@ -178,11 +176,6 @@ export class ToolManager {
                 { name: 'getPerformanceStats', description: '获取性能统计' },
                 { name: 'validateScene', description: '验证场景' },
                 { name: 'getErrorLogs', description: '获取错误日志' }
-            ]},
-            { category: 'preferences', name: '偏好设置工具', tools: [
-                { name: 'getPreferences', description: '获取偏好设置' },
-                { name: 'setPreferences', description: '设置偏好设置' },
-                { name: 'resetPreferences', description: '重置偏好设置' }
             ]},
             { category: 'server', name: '服务器工具', tools: [
                 { name: 'getServerStatus', description: '获取服务器状态' },

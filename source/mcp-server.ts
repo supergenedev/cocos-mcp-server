@@ -8,7 +8,6 @@ import { ComponentTools } from './tools/component-tools';
 import { PrefabTools } from './tools/prefab-tools';
 import { ProjectTools } from './tools/project-tools';
 import { DebugTools } from './tools/debug-tools';
-import { PreferencesTools } from './tools/preferences-tools';
 import { ServerTools } from './tools/server-tools';
 import { BroadcastTools } from './tools/broadcast-tools';
 import { SceneAdvancedTools } from './tools/scene-advanced-tools';
@@ -39,7 +38,6 @@ export class MCPServer {
             this.tools.prefab = new PrefabTools();
             this.tools.project = new ProjectTools();
             this.tools.debug = new DebugTools();
-            this.tools.preferences = new PreferencesTools();
             this.tools.server = new ServerTools();
             this.tools.broadcast = new BroadcastTools();
             this.tools.sceneAdvanced = new SceneAdvancedTools();
