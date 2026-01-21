@@ -186,8 +186,13 @@ function serializeComponentProperties(comp: any, compType: string): Record<strin
                 const value = comp[key];
                 const serialized = serializeValue(value, 0);
 
+                // For asset properties like font, spriteFrame, etc., include them even if null
+                // This allows setting them later even if they're currently null
+                const isAssetProperty = ['font', 'spriteFrame', 'texture', 'material', 'clip', 'prefab'].includes(key.toLowerCase());
                 if (serialized !== null && serialized !== undefined) {
                     properties[key] = { value: serialized };
+                } else if (isAssetProperty) {
+                    properties[key] = { value: null };
                 }
             } catch (error) {
                 // Skip properties that can't be accessed or serialized
