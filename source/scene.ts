@@ -357,12 +357,12 @@ const methods: { [key: string]: (...any: any) => any } = {
             if (parentUuid) {
                 const parent = findNodeByUuid(scene, parentUuid);
                 if (parent) {
-                    parent.addChild(node);
+                    node.setParent(parent);
                 } else {
-                    scene.addChild(node);
+                    node.setParent(scene);
                 }
             } else {
-                scene.addChild(node);
+                node.setParent(scene);
             }
 
             if (event.reply) {
@@ -1160,12 +1160,12 @@ const methods: { [key: string]: (...any: any) => any } = {
             if (options.parent) {
                 const parent = findNodeByUuid(scene, options.parent);
                 if (parent) {
-                    parent.addChild(node);
+                    node.setParent(parent);
                 } else {
-                    scene.addChild(node);
+                    node.setParent(scene);
                 }
             } else {
-                scene.addChild(node);
+                node.setParent(scene);
             }
 
             if (event.reply) {
@@ -1206,12 +1206,12 @@ const methods: { [key: string]: (...any: any) => any } = {
                         // Store world position before reparenting (2.x version)
                         const worldX = child.x;
                         const worldY = child.y;
-                        parent.addChild(child);
+                        child.setParent(parent);
                         // Note: This is a simplified version that doesn't account for parent transforms
                         // For full world transform preservation, more complex calculations are needed
                         child.setPosition(worldX, worldY);
                     } else {
-                        parent.addChild(child);
+                        child.setParent(parent);
                     }
                 }
             }
@@ -1287,9 +1287,9 @@ const methods: { [key: string]: (...any: any) => any } = {
 
             // Add to same parent
             if (node.parent) {
-                node.parent.addChild(clonedNode);
+                clonedNode.setParent(node.parent);
             } else {
-                scene.addChild(clonedNode);
+                clonedNode.setParent(scene);
             }
 
             if (event.reply) {

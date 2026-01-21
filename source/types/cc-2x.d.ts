@@ -28,6 +28,7 @@ declare namespace cc {
         constructor(name?: string);
 
         addChild(child: Node, localZOrder?: number, tag?: number | string): void;
+        setParent(parent: Node | null): void;
         removeChild(child: Node, cleanup?: boolean): void;
         removeAllChildren(cleanup?: boolean): void;
         removeFromParent(cleanup?: boolean): void;
