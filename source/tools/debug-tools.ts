@@ -245,7 +245,7 @@ export class DebugTools implements ToolExecutor {
 
         return new Promise((resolve) => {
             // In 2.x, use Editor.Ipc to send messages
-            Editor.Ipc.sendToMain('console:clear', (err: Error | null) => {
+            Editor.Ipc.sendToMain('editor:console-clear', (err: Error | null) => {
                 if (err) {
                     resolve({ success: false, error: err.message });
                 } else {
