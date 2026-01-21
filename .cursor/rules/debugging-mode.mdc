@@ -1,10 +1,12 @@
 ---
-description: Apply this rule when use debbuging agent
-extension: no fetch API, no external npm packages, and absolute paths required for log files.
+description: Apply this rule when debugging, using debug agent, or working with debugging mode. Critical constraints: no fetch API, no external npm packages, absolute paths required for log files. Node.js v14.16.0 environment limitations.
+keywords: debug, debugging, debug agent, 디버깅, debugging mode, debug mode, electron extension, node v14, fetch api, npm packages, log paths
 alwaysApply: false
 ---
 
-# 디버깅 모드 가이드
+# ⚠️ 디버깅 모드 가이드 - 필수 적용
+
+**이 룰은 디버깅, 디버그, debug, debugging, debug agent, 디버깅 모드 등의 키워드가 언급될 때 자동으로 적용되어야 합니다.**
 
 이 프로젝트는 Electron 앱의 Extension으로 동작하며, 특정 환경 제약사항이 있습니다.
 
@@ -93,3 +95,12 @@ function writeLog(message: string): void {
 - [ ] 외부 npm 패키지를 import하지 않았는가?
 - [ ] 로그 경로가 절대 경로로 설정되었는가?
 - [ ] Node.js v14.16.0에서 지원하는 기능만 사용했는가?
+
+## 자동 적용 트리거
+
+이 룰은 다음 키워드가 언급될 때 자동으로 적용되어야 합니다:
+- debug, debugging, debug agent, 디버깅
+- debugging mode, debug mode
+- electron extension 환경
+- node v14, node.js v14.16.0
+- fetch api, npm packages, log paths
