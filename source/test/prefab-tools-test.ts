@@ -171,11 +171,12 @@ export class PrefabToolsTest {
             children: [],
             components: [
                 {
-                    type: 'cc.UITransform',
+                    type: 'cc.Sprite',
                     enabled: true,
                     properties: {
-                        _contentSize: { width: 100, height: 100 },
-                        _anchorPoint: { x: 0.5, y: 0.5 }
+                        _spriteFrame: null,
+                        _type: 0,
+                        _sizeMode: 1
                     }
                 }
             ]

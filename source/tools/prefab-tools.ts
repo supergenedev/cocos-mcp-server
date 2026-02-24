@@ -1978,21 +1978,7 @@ export class PrefabTools implements ToolExecutor {
         component.__prefab = null;
 
         // 根据组件类型添加特定属性
-        if (componentType === 'cc.UITransform') {
-            const contentSize = componentData.properties?.contentSize?.value || { width: 100, height: 100 };
-            const anchorPoint = componentData.properties?.anchorPoint?.value || { x: 0.5, y: 0.5 };
-
-            component._contentSize = {
-                "__type__": "cc.Size",
-                "width": contentSize.width,
-                "height": contentSize.height
-            };
-            component._anchorPoint = {
-                "__type__": "cc.Vec2",
-                "x": anchorPoint.x,
-                "y": anchorPoint.y
-            };
-        } else if (componentType === 'cc.Sprite') {
+        if (componentType === 'cc.Sprite') {
             // 处理Sprite组件的spriteFrame引用
             const spriteFrameProp = componentData.properties?._spriteFrame || componentData.properties?.spriteFrame;
             if (spriteFrameProp) {
@@ -2148,7 +2134,7 @@ export class PrefabTools implements ToolExecutor {
         // 处理组件引用（包括具体的组件类型如cc.Label, cc.Button等）
         if (value?.uuid && (type === 'cc.Component' ||
             type === 'cc.Label' || type === 'cc.Button' || type === 'cc.Sprite' ||
-            type === 'cc.UITransform' || type === 'cc.RigidBody2D' ||
+            type === 'cc.RigidBody2D' ||
             type === 'cc.BoxCollider2D' || type === 'cc.Animation' ||
             type === 'cc.AudioSource' || (type?.startsWith('cc.') && !type.includes('@')))) {
             // 在预制体中，组件引用也需要转换为 __id__ 形式
@@ -2574,14 +2560,10 @@ export class PrefabTools implements ToolExecutor {
             "_id": ""
         };
 
-        // 暂时跳过UITransform组件以避免_getDependComponent错误
-        // 后续通过Engine API动态添加
-        console.log(`节点 ${name} 暂时跳过UITransform组件，避免引擎依赖错误`);
-
-        // 处理其他组件（暂时跳过，专注于修复UITransform问题）
+        // 处理组件
         const components = this.extractComponentsFromNode(nodeData);
         if (components.length > 0) {
-            console.log(`节点 ${name} 包含 ${components.length} 个其他组件，暂时跳过以专注于UITransform修复`);
+            console.log(`节点 ${name} 包含 ${components.length} 个组件`);
         }
 
         // 处理子节点 - 使用query-node-tree获取的完整结构
@@ -2675,9 +2657,6 @@ export class PrefabTools implements ToolExecutor {
     // 添加组件特定的属性
     private addComponentSpecificProperties(component: any, componentData: any, componentType: string): void {
         switch (componentType) {
-            case 'cc.UITransform':
-                this.addUITransformProperties(component, componentData);
-                break;
             case 'cc.Sprite':
                 this.addSpriteProperties(component, componentData);
                 break;
@@ -2692,16 +2671,6 @@ export class PrefabTools implements ToolExecutor {
                 this.addGenericProperties(component, componentData);
                 break;
         }
-    }
-
-    // UITransform组件属性
-    private addUITransformProperties(component: any, componentData: any): void {
-        component._contentSize = this.createSizeObject(
-            this.getComponentPropertyValue(componentData, 'contentSize', { width: 100, height: 100 })
-        );
-        component._anchorPoint = this.createVec2Object(
-            this.getComponentPropertyValue(componentData, 'anchorPoint', { x: 0.5, y: 0.5 })
-        );
     }
 
     // Sprite组件属性
